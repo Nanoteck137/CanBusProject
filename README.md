@@ -10,6 +10,12 @@ Create a custom Can Bus for a car
 
 ### The World (TW)
 - Firmware for Star Platinum
+- https://boltrobotics.com/2018/01/09/Custom-Protocol-for-Serial-Link-Communication/
+- Serial Communication
+    - Protocol:
+    - Header (1 Byte)
+    - Length (1 Byte)
+    - Fletcher16 (2 Bytes)
 
 ### Gold Experience (GE) 
 - Can bus device
