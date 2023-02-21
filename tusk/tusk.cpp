@@ -12,7 +12,7 @@ void tusk_encode(const uint8_t *input_buffer, size_t input_length,
 
   *output++ = 0;
 
-  for (size_t i = 0; i < input_length; i++) {
+  for (size_t i = 0, len = input_length; i < input_length; i++, len--) {
     uint8_t b = input_buffer[i];
     if (b != 0) {
       *output++ = b;
@@ -27,13 +27,22 @@ void tusk_encode(const uint8_t *input_buffer, size_t input_length,
       *output++ = 0;
     }
 
-    if (code == 0xff && i != 0xff - 1) {
+    if (code == 0xff) {
       *code_ptr = code;
       code_ptr = output;
-      code = 1;
+
+      if (len > 1) {
+        code = 1;
+      } else {
+        code = 0;
+      }
 
       *output++ = 0;
     }
+
+    // if (len == 1) {
+    //   code = 0;
+    // }
   }
 
   *code_ptr = code;
