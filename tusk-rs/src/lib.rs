@@ -88,4 +88,43 @@ mod encoding {
         let expected = [0x01, 0x01, 0x00];
         assert_eq!(result, expected);
     }
+
+    #[test]
+    fn encode02() {
+        let result = encode(&[0x00, 0x00]);
+        let expected = [0x01, 0x01, 0x01, 0x00];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn encode03() {
+        let result = encode(&[0x00, 0x11, 0x00]);
+        let expected = [0x01, 0x02, 0x11, 0x01, 0x00];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn encode04() {
+        let result = encode(&[0x11, 0x22, 0x00, 0x33]);
+        let expected = [0x03, 0x11, 0x22, 0x02, 0x33, 0x00];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn encode05() {
+        let result = encode(&[0x11, 0x22, 0x33, 0x44]);
+        let expected = [0x05, 0x11, 0x22, 0x33, 0x44, 0x00];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn encode06() {
+        let data = (0x01..=0xfe).collect::<Vec<u8>>();
+        let result = encode(&data);
+
+        let mut expected = data.clone();
+        expected.insert(0, 0xff);
+        expected.push(0x00);
+        assert_eq!(result, expected);
+    }
 }
