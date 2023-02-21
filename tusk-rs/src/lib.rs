@@ -20,7 +20,7 @@
 #![allow(non_snake_case)]
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-fn encode(input: &[u8]) -> Vec<u8> {
+pub fn encode(input: &[u8]) -> Vec<u8> {
     println!("Input: {:x?}", input);
     let mut buffer = vec![0; input.len() + 1];
     unsafe { tusk_encode(input.as_ptr(), input.len(), buffer.as_mut_ptr()) };
@@ -28,18 +28,18 @@ fn encode(input: &[u8]) -> Vec<u8> {
     buffer
 }
 
-fn decode(input: &[u8]) -> Vec<u8> {
+pub fn decode(input: &[u8]) -> Vec<u8> {
     let mut buffer = vec![0; 6];
     unsafe { tusk_decode(input.as_ptr(), input.len(), buffer.as_mut_ptr()) };
 
     buffer
 }
 
-fn checksum(input: &[u8]) -> u16 {
+pub fn checksum(input: &[u8]) -> u16 {
     unsafe { tusk_checksum(input.as_ptr(), input.len()) }
 }
 
-fn check_bytes(checksum: u16) -> (u8, u8) {
+pub fn check_bytes(checksum: u16) -> (u8, u8) {
     let mut a: u8 = 0;
     let mut b: u8 = 0;
     unsafe {

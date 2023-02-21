@@ -4,7 +4,7 @@ fn main() {
 
     cc::Build::new()
         .cpp(true)
-        .file("../tusk.cpp")
+        .file("../tusk/tusk.cpp")
         .compile("libtusk.a");
 
     let bindings = bindgen::Builder::default()

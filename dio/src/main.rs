@@ -8,18 +8,19 @@ fn main() {
 
     let port = ports
         .iter()
-        .find(|item| item.port_name == "COM4")
+        .find(|item| item.port_name == "/dev/cu.usbserial-140")
         .expect("Failed to find COM4");
 
     let mut port = serialport::new(port.port_name.clone(), 9600)
-        .stop_bits(serialport::StopBits::One)
-        .data_bits(serialport::DataBits::Eight)
-        .parity(serialport::Parity::None)
-        .timeout(Duration::from_millis(500))
+        .baud_rate(9600)
+        // .stop_bits(serialport::StopBits::One)
+        // .data_bits(serialport::DataBits::Eight)
+        // .parity(serialport::Parity::None)
+        // .timeout(Duration::from_millis(10000))
         .open()
         .expect("Failed to open COM4");
     println!("Port Opened");
-    let data = [0x00u8, 0x01u8];
+    let data = ['a' as u8, '\n' as u8];
     let length = port.write(&data).unwrap();
     println!("Length: {}", length);
     port.flush().unwrap();
