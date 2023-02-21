@@ -1,6 +1,6 @@
 fn main() {
-    println!("cargo:rerun-if-changed=../tusk.cpp");
-    println!("cargo:rerun-if-changed=../tusk.h");
+    println!("cargo:rerun-if-changed=../tusk/tusk.cpp");
+    println!("cargo:rerun-if-changed=../tusk/tusk.h");
 
     cc::Build::new()
         .cpp(true)

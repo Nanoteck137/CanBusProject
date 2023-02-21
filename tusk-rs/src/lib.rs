@@ -1,76 +1,98 @@
-// extern "C" {
-//     fn tusk_get_encode_size(data_length: usize) -> usize;
-//     fn tusk_encode(
-//         input_buffer: *const u8,
-//         input_length: usize,
-//         output: *mut u8,
-//     );
-//     fn tusk_decode(
-//         input_buffer: *const u8,
-//         input_length: usize,
-//         output: *mut u8,
-//     );
-//
-//     fn tusk_checksum(buffer: *const u8, length: usize) -> u16;
-//     fn tusk_check_bytes(checksum: u16, a: *mut u8, b: *mut u8);
-// }
-
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+mod bind;
 
 pub fn encode(input: &[u8]) -> Vec<u8> {
     println!("Input: {:x?}", input);
     let mut buffer = vec![0; input.len() + 1];
-    unsafe { tusk_encode(input.as_ptr(), input.len(), buffer.as_mut_ptr()) };
+    unsafe {
+        bind::tusk_encode(input.as_ptr(), input.len(), buffer.as_mut_ptr())
+    };
 
     buffer
 }
 
 pub fn decode(input: &[u8]) -> Vec<u8> {
     let mut buffer = vec![0; 6];
-    unsafe { tusk_decode(input.as_ptr(), input.len(), buffer.as_mut_ptr()) };
+    unsafe {
+        bind::tusk_decode(input.as_ptr(), input.len(), buffer.as_mut_ptr())
+    };
 
     buffer
 }
 
 pub fn checksum(input: &[u8]) -> u16 {
-    unsafe { tusk_checksum(input.as_ptr(), input.len()) }
+    unsafe { bind::tusk_checksum(input.as_ptr(), input.len()) }
 }
 
 pub fn check_bytes(checksum: u16) -> (u8, u8) {
     let mut a: u8 = 0;
     let mut b: u8 = 0;
     unsafe {
-        tusk_check_bytes(checksum, &mut a, &mut b);
+        bind::tusk_check_bytes(checksum, &mut a, &mut b);
     }
 
     (a, b)
 }
 
 #[cfg(test)]
-mod tests {
+mod checksum {
     use super::*;
 
     #[test]
-    fn lel() {
-        let data = [1, 2, 0, 4, 3];
-        let result = encode(&data);
-        println!("Result: {:x?}", result);
-
-        let decode_result = decode(&result);
-        println!("Decode Result: {:x?}", decode_result);
-
+    fn checksum_test() {
         let sum = checksum(&['a' as u8, 'b' as u8, 'c' as u8, 'd' as u8]);
-        println!("Checksum: {:#x}", sum);
+        assert_eq!(sum, 0xd78b);
 
+        let sum = checksum(b"HelloWorld");
+        assert_eq!(sum, 0x6100);
+
+        let sum = checksum(b"Test");
+        assert_eq!(sum, 0xdca1);
+
+        // let data = [1, 2, 0, 4, 3];
+        // let result = encode(&data);
+        // println!("Result: {:x?}", result);
+        //
+        // let decode_result = decode(&result);
+        // println!("Decode Result: {:x?}", decode_result);
+    }
+
+    #[test]
+    fn checksum_check_bytes() {
+        let sum = checksum(&['a' as u8, 'b' as u8, 'c' as u8, 'd' as u8]);
         let check = check_bytes(sum);
-        println!("Check Bytes: {:x?}", check);
+        assert_eq!(sum, 0xd78b);
+        assert_eq!(check, (0x9c, 0xd7));
 
-        let sum = checksum(&[
-            'a' as u8, 'b' as u8, 'c' as u8, 'd' as u8, check.0, check.1,
-        ]);
-        println!("Checksum: {:#x}", sum);
+        let sum = checksum(b"HelloWorld");
+        let check = check_bytes(sum);
+        assert_eq!(sum, 0x6100);
+        assert_eq!(check, (0x9e, 0x61));
+    }
+}
+
+#[cfg(test)]
+mod encoding {
+    use super::*;
+
+    #[test]
+    fn encode00() {
+        let result = encode(&[1, 2, 3, 4]);
+        let expected = [5, 1, 2, 3, 4];
+        assert_eq!(result, expected);
+
+        let result = encode(&[1, 2, 0, 3, 4]);
+        let expected = [3, 1, 2, 3, 3, 4];
+        assert_eq!(result, expected);
+
+        let result = encode(&[1, 2, 0, 3, 4, 0]);
+        let expected = [3, 1, 2, 3, 3, 4, 1];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn encode01() {
+        // let result = encode(&[0x00]);
+        // let expected = [0x01, 0x01, 0x00];
+        // assert_eq!(result, expected);
     }
 }
