@@ -3,10 +3,16 @@
 #include <stdio.h>
 
 extern "C" {
-size_t tusk_get_encode_size(size_t data_length) { return data_length + 2; }
+size_t tusk_get_max_encode_buffer_size(size_t data_length) {
+  const size_t SIZE = 254;
+  int overhead = (data_length + SIZE - 1) / SIZE;
+  return data_length + 1 + overhead;
+}
 
-void tusk_encode(const uint8_t *input_buffer, size_t input_length,
-                 uint8_t *output) {
+size_t tusk_encode(const uint8_t *input_buffer, size_t input_length,
+                   uint8_t *output) {
+  uint8_t *start = output;
+
   uint8_t code = 1;
   uint8_t *code_ptr = output;
 
@@ -33,20 +39,17 @@ void tusk_encode(const uint8_t *input_buffer, size_t input_length,
 
       if (len > 1) {
         code = 1;
+        *output++ = 0;
       } else {
         code = 0;
       }
-
-      *output++ = 0;
     }
-
-    // if (len == 1) {
-    //   code = 0;
-    // }
   }
 
   *code_ptr = code;
   *output++ = 0;
+
+  return output - start;
 }
 
 void tusk_decode(const uint8_t *input_buffer, size_t input_length,
