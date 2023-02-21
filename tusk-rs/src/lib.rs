@@ -1,8 +1,8 @@
 mod bind;
 
 pub fn encode(input: &[u8]) -> Vec<u8> {
-    println!("Input: {:x?}", input);
-    let mut buffer = vec![0; input.len() + 1];
+    let len = unsafe { bind::tusk_get_encode_size(input.len()) };
+    let mut buffer = vec![0; len];
     unsafe {
         bind::tusk_encode(input.as_ptr(), input.len(), buffer.as_mut_ptr())
     };
@@ -47,13 +47,6 @@ mod checksum {
 
         let sum = checksum(b"Test");
         assert_eq!(sum, 0xdca1);
-
-        // let data = [1, 2, 0, 4, 3];
-        // let result = encode(&data);
-        // println!("Result: {:x?}", result);
-        //
-        // let decode_result = decode(&result);
-        // println!("Decode Result: {:x?}", decode_result);
     }
 
     #[test]
@@ -77,22 +70,22 @@ mod encoding {
     #[test]
     fn encode00() {
         let result = encode(&[1, 2, 3, 4]);
-        let expected = [5, 1, 2, 3, 4];
+        let expected = [5, 1, 2, 3, 4, 0];
         assert_eq!(result, expected);
 
         let result = encode(&[1, 2, 0, 3, 4]);
-        let expected = [3, 1, 2, 3, 3, 4];
+        let expected = [3, 1, 2, 3, 3, 4, 0];
         assert_eq!(result, expected);
 
         let result = encode(&[1, 2, 0, 3, 4, 0]);
-        let expected = [3, 1, 2, 3, 3, 4, 1];
+        let expected = [3, 1, 2, 3, 3, 4, 1, 0];
         assert_eq!(result, expected);
     }
 
     #[test]
     fn encode01() {
-        // let result = encode(&[0x00]);
-        // let expected = [0x01, 0x01, 0x00];
-        // assert_eq!(result, expected);
+        let result = encode(&[0x00]);
+        let expected = [0x01, 0x01, 0x00];
+        assert_eq!(result, expected);
     }
 }
