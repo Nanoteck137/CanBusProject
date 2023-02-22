@@ -52,9 +52,10 @@ size_t tusk_encode(const uint8_t *input_buffer, size_t input_length,
   return output - start;
 }
 
-void tusk_decode(const uint8_t *input_buffer, size_t input_length,
-                 uint8_t *output, uint8_t delimiter) {
+size_t tusk_decode(const uint8_t *input_buffer, size_t input_length,
+                   uint8_t *output, uint8_t delimiter) {
 
+  uint8_t *start = output;
   uint8_t target = input_buffer[0];
 
   size_t index = 0;
@@ -72,6 +73,8 @@ void tusk_decode(const uint8_t *input_buffer, size_t input_length,
       index++;
     }
   }
+
+  return (size_t)(output - start);
 }
 
 uint16_t tusk_checksum(const uint8_t *buffer, size_t length) {

@@ -32,8 +32,8 @@ impl TuskEncoder {
     }
 
     pub fn decode(&self, input: &[u8]) -> Vec<u8> {
-        let mut buffer = vec![0; 6];
-        unsafe {
+        let mut buffer = vec![0; input.len()];
+        let len = unsafe {
             bind::tusk_decode(
                 input.as_ptr(),
                 input.len(),
@@ -41,6 +41,8 @@ impl TuskEncoder {
                 self.delimiter,
             )
         };
+
+        buffer.truncate(len);
 
         buffer
     }
@@ -93,6 +95,15 @@ mod checksum {
 #[cfg(test)]
 mod encoding {
     use super::*;
+
+    #[test]
+    fn decode_test() {
+        let encoder = TuskEncoder::new(0);
+        let data = [1, 2, 1, 3, 4];
+        let encoded = encoder.encode(&data);
+        let result = encoder.decode(&encoded);
+        assert_eq!(result, data);
+    }
 
     #[test]
     fn encode_delimiter() {
