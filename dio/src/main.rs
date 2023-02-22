@@ -1,35 +1,50 @@
 use std::time::Duration;
 
 fn main() {
-    let ports = serialport::available_ports().unwrap();
-    for port in &ports {
-        println!("Port: {}", port.port_name);
+    let mut port = serialport::new("/dev/cu.usbserial-120", 9600)
+        .timeout(Duration::from_millis(1000))
+        .open()
+        .unwrap();
+
+    loop {
+        port.write(&[0]).unwrap();
+
+        let mut buf = [0; 1024];
+        match port.read(&mut buf) {
+            Ok(n) => println!("Read: {:?}", std::str::from_utf8(&buf[..n])),
+            Err(e) => eprintln!("Error: {:?}", e),
+        }
+
+        std::thread::sleep(Duration::from_millis(500));
     }
 
-    let port = ports
-        .iter()
-        .find(|item| item.port_name == "/dev/cu.usbserial-140")
-        .expect("Failed to find COM4");
-
-    let mut port = serialport::new(port.port_name.clone(), 9600)
-        .baud_rate(9600)
-        // .stop_bits(serialport::StopBits::One)
-        // .data_bits(serialport::DataBits::Eight)
-        // .parity(serialport::Parity::None)
-        // .timeout(Duration::from_millis(10000))
-        .open()
-        .expect("Failed to open COM4");
-    println!("Port Opened");
-    let data = ['a' as u8, '\n' as u8];
-    let length = port.write(&data).unwrap();
-    println!("Length: {}", length);
-    port.flush().unwrap();
-    println!("Start Reading");
+    // let mut port = serial2::SerialPort::open("/dev/cu.usbserial-120", 9600).unwrap();
+    // port.set_read_timeout(Duration::from_millis(500)).unwrap();
+    // port.set_rts(true).unwrap();
+    //
+    // std::thread::sleep(Duration::from_millis(1000));
+    //
+    // let length = port.write(b"a").unwrap();
+    // println!("Length: {}", length);
+    // port.flush().unwrap();
+    //
+    // let mut buf = [0; 1024];
+    // let len = port.read(&mut buf);
+    // println!("Test: {:?}", len);
+    //
+    // println!("Start");
     // loop {
-    //     println!("Test: {:?}", port.bytes_to_read());
-    //     std::thread::sleep(Duration::from_millis(1000));
+    //     port.write(b"a").unwrap();
+    //     port.flush().unwrap();
+    //
+    //     let mut buf = [0; 1024];
+    //     match port.read(&mut buf) {
+    //         Ok(n) => {
+    //             println!("Buf: {:?}", &buf[..n]);
+    //         }
+    //         Err(e) => eprintln!("Error: {:?}", e),
+    //     }
+    //
+    //     std::thread::sleep(Duration::from_millis(500));
     // }
-    let mut res = [0u8; 1024];
-    let length = port.read(&mut res).unwrap();
-    println!("Data: {:x?}", std::str::from_utf8(&res[0..length]));
 }

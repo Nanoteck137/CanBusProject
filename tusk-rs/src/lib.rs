@@ -4,26 +4,46 @@ pub fn get_max_encode_buffer_size(length: usize) -> usize {
     unsafe { bind::tusk_get_max_encode_buffer_size(length) }
 }
 
-pub fn encode(input: &[u8]) -> Vec<u8> {
-    let len = get_max_encode_buffer_size(input.len());
-    let mut buffer = vec![0; len];
-    let len = unsafe {
-        bind::tusk_encode(input.as_ptr(), input.len(), buffer.as_mut_ptr())
-    };
-
-    println!("Length: {}", len);
-    buffer.truncate(len);
-
-    buffer
+pub struct TuskEncoder {
+    delimiter: u8,
 }
 
-pub fn decode(input: &[u8]) -> Vec<u8> {
-    let mut buffer = vec![0; 6];
-    unsafe {
-        bind::tusk_decode(input.as_ptr(), input.len(), buffer.as_mut_ptr())
-    };
+impl TuskEncoder {
+    pub fn new(delimiter: u8) -> Self {
+        Self { delimiter }
+    }
 
-    buffer
+    pub fn encode(&self, input: &[u8]) -> Vec<u8> {
+        let len = get_max_encode_buffer_size(input.len());
+        let mut buffer = vec![0; len];
+        let len = unsafe {
+            bind::tusk_encode(
+                input.as_ptr(),
+                input.len(),
+                buffer.as_mut_ptr(),
+                self.delimiter,
+            )
+        };
+
+        println!("Length: {}", len);
+        buffer.truncate(len);
+
+        buffer
+    }
+
+    pub fn decode(&self, input: &[u8]) -> Vec<u8> {
+        let mut buffer = vec![0; 6];
+        unsafe {
+            bind::tusk_decode(
+                input.as_ptr(),
+                input.len(),
+                buffer.as_mut_ptr(),
+                self.delimiter,
+            )
+        };
+
+        buffer
+    }
 }
 
 pub fn checksum(input: &[u8]) -> u16 {
@@ -75,16 +95,38 @@ mod encoding {
     use super::*;
 
     #[test]
+    fn encode_delimiter() {
+        let encoder = TuskEncoder::new(1);
+        let result = encoder.encode(&[1, 2, 1, 3, 4]);
+        let expected = [1, 2, 2, 3, 3, 4, 1];
+        assert_eq!(result, expected);
+
+        // TODO(patrik): Check 0xfe and 0xff
+        for num in 0x00..=0xfd {
+            let encoder = TuskEncoder::new(num);
+            let data = (0x00..=0xfe).collect::<Vec<u8>>();
+            let result = encoder.encode(&data);
+            let mut expected = data.clone();
+            expected[num as usize] = 0xff - num;
+            expected.insert(0, num + 1);
+            expected.push(num);
+            assert_eq!(result, expected, "Failed for num: {}", num);
+        }
+    }
+
+    #[test]
     fn encode00() {
-        let result = encode(&[1, 2, 3, 4]);
+        let encoder = TuskEncoder::new(0);
+
+        let result = encoder.encode(&[1, 2, 3, 4]);
         let expected = [5, 1, 2, 3, 4, 0];
         assert_eq!(result, expected);
 
-        let result = encode(&[1, 2, 0, 3, 4]);
+        let result = encoder.encode(&[1, 2, 0, 3, 4]);
         let expected = [3, 1, 2, 3, 3, 4, 0];
         assert_eq!(result, expected);
 
-        let result = encode(&[1, 2, 0, 3, 4, 0]);
+        let result = encoder.encode(&[1, 2, 0, 3, 4, 0]);
         let expected = [3, 1, 2, 3, 3, 4, 1, 0];
         assert_eq!(result, expected);
     }
@@ -104,50 +146,64 @@ mod encoding {
 
     #[test]
     fn encode01() {
-        let result = encode(&[0x00]);
+        let encoder = TuskEncoder::new(0);
+
+        let result = encoder.encode(&[0x00]);
         let expected = [0x01, 0x01, 0x00];
         assert_eq!(result, expected);
     }
 
     #[test]
     fn encode02() {
-        let result = encode(&[0x00, 0x00]);
+        let encoder = TuskEncoder::new(0);
+
+        let result = encoder.encode(&[0x00, 0x00]);
         let expected = [0x01, 0x01, 0x01, 0x00];
         assert_eq!(result, expected);
     }
 
     #[test]
     fn encode03() {
-        let result = encode(&[0x00, 0x11, 0x00]);
+        let encoder = TuskEncoder::new(0);
+
+        let result = encoder.encode(&[0x00, 0x11, 0x00]);
         let expected = [0x01, 0x02, 0x11, 0x01, 0x00];
         assert_eq!(result, expected);
     }
 
     #[test]
     fn encode04() {
-        let result = encode(&[0x11, 0x22, 0x00, 0x33]);
+        let encoder = TuskEncoder::new(0);
+
+        let result = encoder.encode(&[0x11, 0x22, 0x00, 0x33]);
         let expected = [0x03, 0x11, 0x22, 0x02, 0x33, 0x00];
         assert_eq!(result, expected);
     }
 
     #[test]
     fn encode05() {
-        let result = encode(&[0x11, 0x22, 0x33, 0x44]);
+        let encoder = TuskEncoder::new(0);
+
+        let result = encoder.encode(&[0x11, 0x22, 0x33, 0x44]);
         let expected = [0x05, 0x11, 0x22, 0x33, 0x44, 0x00];
         assert_eq!(result, expected);
     }
 
     #[test]
     fn encode06() {
-        let result = encode(&[0x11, 0x00, 0x00, 0x00]);
+        let encoder = TuskEncoder::new(0);
+
+        let result = encoder.encode(&[0x11, 0x00, 0x00, 0x00]);
         let expected = [0x02, 0x11, 0x01, 0x01, 0x01, 00];
         assert_eq!(result, expected);
     }
 
     #[test]
     fn encode07() {
+        let encoder = TuskEncoder::new(0);
+
         let data = (0x01..=0xfe).collect::<Vec<u8>>();
-        let result = encode(&data);
+        let result = encoder.encode(&data);
 
         let mut expected = data.clone();
         expected.insert(0, 0xff);
@@ -157,8 +213,10 @@ mod encoding {
 
     #[test]
     fn encode08() {
+        let encoder = TuskEncoder::new(0);
+
         let data = (0x00..=0xfe).collect::<Vec<u8>>();
-        let result = encode(&data);
+        let result = encoder.encode(&data);
 
         let mut expected = data;
         expected.remove(0);
@@ -171,8 +229,10 @@ mod encoding {
 
     #[test]
     fn encode09() {
+        let encoder = TuskEncoder::new(0);
+
         let data = (0x01..=0xff).collect::<Vec<u8>>();
-        let result = encode(&data);
+        let result = encoder.encode(&data);
 
         let mut expected = data;
         expected.insert(0, 0xff);
@@ -184,10 +244,12 @@ mod encoding {
 
     #[test]
     fn encode10() {
+        let encoder = TuskEncoder::new(0);
+
         let data = (0x01..=0xff)
             .map(|v: u8| v.wrapping_add(1))
             .collect::<Vec<u8>>();
-        let result = encode(&data);
+        let result = encoder.encode(&data);
 
         let mut expected = data;
         expected.pop();
@@ -201,10 +263,12 @@ mod encoding {
 
     #[test]
     fn encode11() {
+        let encoder = TuskEncoder::new(0);
+
         let data = (0x01..=0xff)
             .map(|v: u8| v.wrapping_add(2))
             .collect::<Vec<u8>>();
-        let result = encode(&data);
+        let result = encoder.encode(&data);
 
         let mut expected = data;
         let len = expected.len();

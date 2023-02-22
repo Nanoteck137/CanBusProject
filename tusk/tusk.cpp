@@ -10,7 +10,7 @@ size_t tusk_get_max_encode_buffer_size(size_t data_length) {
 }
 
 size_t tusk_encode(const uint8_t *input_buffer, size_t input_length,
-                   uint8_t *output) {
+                   uint8_t *output, uint8_t delimiter) {
   uint8_t *start = output;
 
   uint8_t code = 1;
@@ -20,17 +20,17 @@ size_t tusk_encode(const uint8_t *input_buffer, size_t input_length,
 
   for (size_t i = 0, len = input_length; i < input_length; i++, len--) {
     uint8_t b = input_buffer[i];
-    if (b != 0) {
+    if (b != delimiter) {
       *output++ = b;
       code++;
     }
 
-    if (b == 0) {
+    if (b == delimiter) {
       *code_ptr = code;
       code_ptr = output;
       code = 1;
 
-      *output++ = 0;
+      *output++ = delimiter;
     }
 
     if (code == 0xff) {
@@ -39,7 +39,7 @@ size_t tusk_encode(const uint8_t *input_buffer, size_t input_length,
 
       if (len > 1) {
         code = 1;
-        *output++ = 0;
+        *output++ = delimiter;
       } else {
         code = 0;
       }
@@ -47,13 +47,13 @@ size_t tusk_encode(const uint8_t *input_buffer, size_t input_length,
   }
 
   *code_ptr = code;
-  *output++ = 0;
+  *output++ = delimiter;
 
   return output - start;
 }
 
 void tusk_decode(const uint8_t *input_buffer, size_t input_length,
-                 uint8_t *output) {
+                 uint8_t *output, uint8_t delimiter) {
 
   uint8_t target = input_buffer[0];
 
@@ -63,8 +63,8 @@ void tusk_decode(const uint8_t *input_buffer, size_t input_length,
 
     if (index >= (size_t)(target - 1)) {
       target = b;
-      if (target != 0 && index != 0xff - 1) {
-        *output++ = 0;
+      if (target != delimiter && index != 0xff - 1) {
+        *output++ = delimiter;
       }
       index = 0;
     } else {
