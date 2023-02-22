@@ -39,6 +39,14 @@ struct Packet {
 
 uint8_t pid = 0;
 
+bool connection = false;
+bool got_syn = false;
+
+bool sent_ping = false;
+bool waiting_for_pong = false;
+
+unsigned long last = 0;
+
 void write_u8(uint8_t val) {
     *buf_ptr++ = val;
 }
@@ -95,12 +103,17 @@ void send_empty_packet(uint8_t type) {
 int parse_packet(Packet *packet) {
     while(true) {
         // Read the header of the packet
-        if(Serial.available() >= 2) {
-            uint8_t temp[2];
+        if(Serial.available() >= 3) {
+            uint8_t temp[3];
             Serial.readBytes(temp, sizeof(temp));
 
             packet->pid = temp[0];
             packet->type = temp[1];
+            packet->data_length = temp[2];
+
+            for(int i = 0; i < packet->data_length; i++) {
+                Serial.read();
+            }
 
             while(true) {
                 if(Serial.available() >= 2) {
@@ -123,51 +136,96 @@ void setup() {
     Serial.begin(9600);
     pinMode(LED_BUILTIN, OUTPUT);
 
-    while(!Serial);
+    // while(!Serial);
+    //
+    // send_empty_packet(SYN);
+    //
+    // bool connection = false;
+    // while(!connection) {
+    //     if(Serial.available() > 0) {
+    //         int r = Serial.read();
+    //         if(r == START) {
+    //             Packet packet;
+    //             if(parse_packet(&packet) == SUCCESS) {
+    //                 if(packet.type == SYN_ACK) {
+    //                     send_empty_packet(ACK);
+    //                     connection = true;
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+    //
+    //
+    // bool test = false;
+    // unsigned long last = millis();
+    // while(connection) {
+    //     if(Serial.available() > 0) {
+    //         int r = Serial.read();
+    //         if(r == START) {
+    //             Packet packet;
+    //             if(parse_packet(&packet) == SUCCESS) {
+    //                 if(packet.type == PING) {
+    //                     test = true;
+    //                     send_empty_packet(PONG);
+    //                 }
+    //             }
+    //         }
+    //     }
+    //
+    //     if(test && (millis() - last) > 2000) {
+    //         send_empty_packet(UPDATE);
+    //         last = millis();
+    //     }
+    // }
+    //
+    last = millis();
+}
 
-    send_empty_packet(SYN);
 
-    bool connection = false;
-    while(!connection) {
-        if(Serial.available() > 0) {
-            int r = Serial.read();
-            if(r == START) {
-                Packet packet;
-                if(parse_packet(&packet) == SUCCESS) {
-                    if(packet.type == SYN_ACK) {
-                        send_empty_packet(ACK);
-                        connection = true;
-                    }
+void loop() {
+    // Get connection
+    if(Serial.available() > 0 && !connection) {
+        int b = Serial.read();
+        if(b == START) {
+            Packet packet;
+            if(parse_packet(&packet) == SUCCESS) {
+                if(!got_syn && packet.type == SYN) {
+                    send_empty_packet(SYN_ACK);
+                    got_syn = true;
+                }
+
+                if(got_syn && packet.type == ACK) {
+                    connection = true;
                 }
             }
         }
     }
 
+    if(connection) {
+        if(!sent_ping) {
+            send_empty_packet(PING);
+            sent_ping = true;
+            waiting_for_pong = true;
+        }
 
-    bool test = false;
-    unsigned long last = millis();
-    while(connection) {
         if(Serial.available() > 0) {
-            int r = Serial.read();
-            if(r == START) {
+            int b = Serial.read();
+            if(b == START) {
                 Packet packet;
                 if(parse_packet(&packet) == SUCCESS) {
-                    if(packet.type == PING) {
-                        test = true;
-                        send_empty_packet(PONG);
+                    if(packet.type == PONG) {
+                        waiting_for_pong = false;
                     }
                 }
             }
         }
 
-        if(test && (millis() - last) > 2000) {
+        if((millis() - last) > 2000) {
             send_empty_packet(UPDATE);
             last = millis();
         }
     }
 
-    while(true);
-}
 
-void loop() {
 }
