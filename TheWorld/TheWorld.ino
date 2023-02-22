@@ -1,9 +1,186 @@
+#include <tusk.h>
+
+uint8_t buf[32] = { 0 };
+
+uint8_t *buf_ptr = buf;
+
+// Handshake:
+// SYN
+// SYN-ACK
+// ACK
+
+// Packet:
+// START (1-Byte)
+// PID (1-Byte)
+// TYPE (1-Byte)
+// DATA (27 Max)
+// Checksum (2-bytes)
+
+const uint8_t START = 0x4e;
+
+const uint8_t SYN = 0x01;
+const uint8_t SYN_ACK = 0x02;
+const uint8_t ACK = 0x03;
+const uint8_t PING = 0x04;
+const uint8_t PONG = 0x05;
+
+void write_u8(uint8_t val) {
+    *buf_ptr++ = val;
+}
+
+void write_u16(uint16_t val) {
+    *buf_ptr++ = val & 0xff;
+    *buf_ptr++ = (val >> 8) & 0xff;
+}
+
+void write_buffer(size_t length) {
+    Serial.write(buf, length);
+    Serial.flush();
+
+    buf_ptr = buf;
+}
+
+void send_syn() {
+    uint8_t *start = buf_ptr;
+
+    // Start byte
+    write_u8(START);
+    // PID
+    write_u8(0);
+    // TYPE
+    write_u8(SYN);
+    size_t len = (size_t)(buf_ptr - start);
+    uint16_t checksum = tusk_checksum(start, len);
+    write_u16(checksum);
+
+    size_t packet_len = (size_t)(buf_ptr - start);
+    write_buffer(packet_len);
+}
+
+void send_ack() {
+    uint8_t *start = buf_ptr;
+
+    // Start byte
+    write_u8(START);
+    // PID
+    write_u8(0);
+    // TYPE
+    write_u8(ACK);
+    size_t len = (size_t)(buf_ptr - start);
+    uint16_t checksum = tusk_checksum(start, len);
+    write_u16(checksum);
+
+    size_t packet_len = (size_t)(buf_ptr - start);
+    write_buffer(packet_len);
+}
+
+void send_pong() {
+    uint8_t *start = buf_ptr;
+
+    // Start byte
+    write_u8(START);
+    // PID
+    write_u8(0);
+    // TYPE
+    write_u8(PONG);
+    size_t len = (size_t)(buf_ptr - start);
+    uint16_t checksum = tusk_checksum(start, len);
+    write_u16(checksum);
+
+    size_t packet_len = (size_t)(buf_ptr - start);
+    write_buffer(packet_len);
+}
+
+int parse_packet() {
+    int typ = -1;
+    while(true) {
+        // Read the header of the packet
+        if(Serial.available() >= 2) {
+            uint8_t temp_buf[2];
+            Serial.readBytes(temp_buf, sizeof(temp_buf));
+
+            uint8_t pid = temp_buf[0];
+            typ = (int)temp_buf[1];
+
+            while(true) {
+                if(Serial.available() >= 2) {
+                    Serial.readBytes(temp_buf, sizeof(temp_buf));
+                    break;
+                }
+            }
+        }
+
+        if(typ != -1) {
+            break;
+        }
+    }
+
+    return typ;
+}
+
 void setup()
 {
     Serial.begin(9600);
     pinMode(LED_BUILTIN, OUTPUT);
 
-    delay(1000);
+    while(!Serial);
+
+    send_syn();
+
+    bool connection = false;
+
+    while(!connection) {
+        if(Serial.available() > 0) {
+            int r = Serial.read();
+            if(r == START) {
+                int e = parse_packet();
+                if(e == SYN_ACK) {
+                    send_ack();
+                    connection = true;
+                }
+            }
+        }
+    }
+
+    while(connection) {
+        if(Serial.available() > 0) {
+            int r = Serial.read();
+            if(r == START) {
+                int e = parse_packet();
+                if(e == PING) {
+                    send_pong();
+                }
+            }
+        }
+    }
+
+    while(true);
+
+    // uint8_t data[] = { 1, 2, 0, 3, 4 };
+    // size_t buf_len = tusk_get_max_encode_buffer_size(sizeof(data));
+    // size_t len = tusk_encode(data, sizeof(data), buf, 0);
+    // Serial.write(buf, len);
+    // Serial.flush();
+    //
+    // delay(10000);
+    //
+    // bool found = false;
+    // uint8_t *ptr = buf;
+    //
+    // while(Serial.available() <= 0 || !found) {
+    //     int r = Serial.read();
+    //     if(r == 4) {
+    //         found = true;
+    //     }
+    //
+    //     if(found) {
+    //         *ptr++ = r;
+    //     }
+    // }
+    //
+    // size_t rlen = (size_t)(ptr - buf);
+    // Serial.write((uint8_t *)&rlen, sizeof(rlen));
+    // Serial.flush();
 }
 
 enum Commands
