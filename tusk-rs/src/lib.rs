@@ -106,6 +106,17 @@ mod encoding {
     }
 
     #[test]
+    fn decode_delimiter() {
+        for num in 0x00..=0xff {
+            let encoder = TuskEncoder::new(num);
+            let data = (0x00..=0xfe).collect::<Vec<u8>>();
+            let encoded = encoder.encode(&data);
+            let result = encoder.decode(&encoded);
+            assert_eq!(result, data, "Failed for num: {}", num);
+        }
+    }
+
+    #[test]
     fn encode_delimiter() {
         let encoder = TuskEncoder::new(1);
         let result = encoder.encode(&[1, 2, 1, 3, 4]);
