@@ -7,6 +7,7 @@ const SYN_ACK: u8 = 0x02;
 const ACK: u8 = 0x03;
 const PING: u8 = 0x04;
 const PONG: u8 = 0x05;
+const UPDATE: u8 = 0x06;
 
 static PID: AtomicU8 = AtomicU8::new(1);
 
@@ -22,16 +23,18 @@ fn parse_packet(port: &mut Box<dyn serialport::SerialPort>) -> Packet {
 
     loop {
         // Read the header of the packet
-        if port.bytes_to_read().unwrap() >= 2 {
-            let mut buf = [0; 2];
+        if port.bytes_to_read().unwrap() >= 3 {
+            let mut buf = [0; 3];
             if let Ok(_) = port.read_exact(&mut buf) {
                 println!("Packet Header: {:?}", buf);
 
                 let pid = buf[0];
-                // TODO(patrik): Temp
-                assert_eq!(pid, 0);
+                println!("PID: {}", pid);
 
                 typ = Some(buf[1]);
+
+                let data_len = buf[2];
+                assert_eq!(data_len, 0);
             }
         }
 
@@ -46,6 +49,7 @@ fn parse_packet(port: &mut Box<dyn serialport::SerialPort>) -> Packet {
                     }
                 }
             }
+
             break;
         }
     }
@@ -153,23 +157,12 @@ fn main() {
                 let packet = parse_packet(&mut port);
                 if packet.typ == PONG {
                     println!("Got pong");
-                    break;
+                }
+
+                if packet.typ == UPDATE {
+                    println!("UPDATE");
                 }
             }
         }
     }
-
-    // for i in 0..100 {
-    //     port.write(&[i]).unwrap();
-    //
-    //     loop {
-    //         let mut buf = [0; 1];
-    //         if let Ok(_) = port.read_exact(&mut buf) {
-    //             assert_eq!(buf[0], i + 1);
-    //             break;
-    //         }
-    //     }
-    // }
-
-    // println!("Test successful");
 }
