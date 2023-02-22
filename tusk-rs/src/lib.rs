@@ -120,7 +120,7 @@ mod encoding {
     fn encode_delimiter() {
         let encoder = TuskEncoder::new(1);
         let result = encoder.encode(&[1, 2, 1, 3, 4]);
-        let expected = [1, 2, 2, 3, 3, 4, 1];
+        let expected = [1, 2, 2, 3, 3, 4];
         assert_eq!(result, expected);
 
         // TODO(patrik): Check 0xfe and 0xff
@@ -131,7 +131,6 @@ mod encoding {
             let mut expected = data.clone();
             expected[num as usize] = 0xff - num;
             expected.insert(0, num + 1);
-            expected.push(num);
             assert_eq!(result, expected, "Failed for num: {}", num);
         }
     }
@@ -141,15 +140,15 @@ mod encoding {
         let encoder = TuskEncoder::new(0);
 
         let result = encoder.encode(&[1, 2, 3, 4]);
-        let expected = [5, 1, 2, 3, 4, 0];
+        let expected = [5, 1, 2, 3, 4];
         assert_eq!(result, expected);
 
         let result = encoder.encode(&[1, 2, 0, 3, 4]);
-        let expected = [3, 1, 2, 3, 3, 4, 0];
+        let expected = [3, 1, 2, 3, 3, 4];
         assert_eq!(result, expected);
 
         let result = encoder.encode(&[1, 2, 0, 3, 4, 0]);
-        let expected = [3, 1, 2, 3, 3, 4, 1, 0];
+        let expected = [3, 1, 2, 3, 3, 4, 1];
         assert_eq!(result, expected);
     }
 
@@ -158,12 +157,12 @@ mod encoding {
         let data = (0x01..=0xfe).collect::<Vec<u8>>();
         let buffer_size = get_max_encode_buffer_size(data.len());
         let overhead = buffer_size - data.len();
-        assert_eq!(overhead, 2);
+        assert_eq!(overhead, 1);
 
         let data = (0x01..=0xff).collect::<Vec<u8>>();
         let buffer_size = get_max_encode_buffer_size(data.len());
         let overhead = buffer_size - data.len();
-        assert_eq!(overhead, 3);
+        assert_eq!(overhead, 2);
     }
 
     #[test]
@@ -171,7 +170,7 @@ mod encoding {
         let encoder = TuskEncoder::new(0);
 
         let result = encoder.encode(&[0x00]);
-        let expected = [0x01, 0x01, 0x00];
+        let expected = [0x01, 0x01];
         assert_eq!(result, expected);
     }
 
@@ -180,7 +179,7 @@ mod encoding {
         let encoder = TuskEncoder::new(0);
 
         let result = encoder.encode(&[0x00, 0x00]);
-        let expected = [0x01, 0x01, 0x01, 0x00];
+        let expected = [0x01, 0x01, 0x01];
         assert_eq!(result, expected);
     }
 
@@ -189,7 +188,7 @@ mod encoding {
         let encoder = TuskEncoder::new(0);
 
         let result = encoder.encode(&[0x00, 0x11, 0x00]);
-        let expected = [0x01, 0x02, 0x11, 0x01, 0x00];
+        let expected = [0x01, 0x02, 0x11, 0x01];
         assert_eq!(result, expected);
     }
 
@@ -198,7 +197,7 @@ mod encoding {
         let encoder = TuskEncoder::new(0);
 
         let result = encoder.encode(&[0x11, 0x22, 0x00, 0x33]);
-        let expected = [0x03, 0x11, 0x22, 0x02, 0x33, 0x00];
+        let expected = [0x03, 0x11, 0x22, 0x02, 0x33];
         assert_eq!(result, expected);
     }
 
@@ -207,7 +206,7 @@ mod encoding {
         let encoder = TuskEncoder::new(0);
 
         let result = encoder.encode(&[0x11, 0x22, 0x33, 0x44]);
-        let expected = [0x05, 0x11, 0x22, 0x33, 0x44, 0x00];
+        let expected = [0x05, 0x11, 0x22, 0x33, 0x44];
         assert_eq!(result, expected);
     }
 
@@ -216,7 +215,7 @@ mod encoding {
         let encoder = TuskEncoder::new(0);
 
         let result = encoder.encode(&[0x11, 0x00, 0x00, 0x00]);
-        let expected = [0x02, 0x11, 0x01, 0x01, 0x01, 00];
+        let expected = [0x02, 0x11, 0x01, 0x01, 0x01];
         assert_eq!(result, expected);
     }
 
@@ -229,7 +228,6 @@ mod encoding {
 
         let mut expected = data.clone();
         expected.insert(0, 0xff);
-        expected.push(0x00);
         assert_eq!(result, expected);
     }
 
@@ -244,7 +242,6 @@ mod encoding {
         expected.remove(0);
         expected.insert(0, 0xff);
         expected.insert(0, 0x01);
-        expected.push(0x00);
 
         assert_eq!(result, expected);
     }
@@ -259,7 +256,6 @@ mod encoding {
         let mut expected = data;
         expected.insert(0, 0xff);
         expected.insert(expected.len() - 1, 0x02);
-        expected.push(0x00);
 
         assert_eq!(result, expected);
     }
@@ -278,7 +274,6 @@ mod encoding {
         expected.insert(0, 0xff);
         expected.push(0x01);
         expected.push(0x01);
-        expected.push(0x00);
 
         assert_eq!(result, expected);
     }
@@ -296,7 +291,6 @@ mod encoding {
         let len = expected.len();
         expected[len - 2] = 2;
         expected.insert(0, 0xfe);
-        expected.push(0x00);
 
         assert_eq!(result, expected);
     }

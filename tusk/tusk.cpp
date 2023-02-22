@@ -6,7 +6,7 @@ extern "C" {
 size_t tusk_get_max_encode_buffer_size(size_t data_length) {
   const size_t SIZE = 254;
   int overhead = (data_length + SIZE - 1) / SIZE;
-  return data_length + 1 + overhead;
+  return data_length + overhead;
 }
 
 size_t tusk_encode(const uint8_t *input_buffer, size_t input_length,
@@ -47,7 +47,6 @@ size_t tusk_encode(const uint8_t *input_buffer, size_t input_length,
   }
 
   *code_ptr = code;
-  *output++ = delimiter;
 
   return output - start;
 }
