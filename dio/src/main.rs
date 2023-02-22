@@ -40,7 +40,11 @@ fn parse_packet(port: &mut Box<dyn serialport::SerialPort>) -> Packet {
             }
         }
 
-        if typ.is_some() && data_len.is_some() {
+        if typ.is_some() {
+            assert!(pid.is_some());
+            assert!(typ.is_some());
+            assert!(data_len.is_some());
+
             loop {
                 if port.bytes_to_read().unwrap() >= data_len.unwrap() {
                     let mut buf = vec![0; data_len.unwrap() as usize];
@@ -50,6 +54,8 @@ fn parse_packet(port: &mut Box<dyn serialport::SerialPort>) -> Packet {
                     }
                 }
             }
+
+            assert!(data.is_some());
 
             loop {
                 if port.bytes_to_read().unwrap() >= 2 {
@@ -62,6 +68,8 @@ fn parse_packet(port: &mut Box<dyn serialport::SerialPort>) -> Packet {
                     }
                 }
             }
+
+            assert!(checksum.is_some());
 
             break;
         }
@@ -92,10 +100,9 @@ fn send_packet(
     buf.push(data.len() as u8);
     buf.extend_from_slice(data);
 
-    let checksum = tusk_rs::checksum(&buf);
+    let checksum = tusk_rs::checksum(&buf[1..]);
     buf.extend_from_slice(&checksum.to_le_bytes());
 
-    println!("Buf: {:x?}", buf);
     match port.write(&buf) {
         Ok(n) => {
             if n != buf.len() {
@@ -123,7 +130,7 @@ fn main() {
     // If timeout is first then resend SYN
     // If SYN-ACK arrives first then send ACK
 
-    let mut connection = false;
+    let connection;
     send_empty_packet(&mut port, SYN);
     loop {
         if last.elapsed().as_millis() > 2000 {
@@ -160,61 +167,10 @@ fn main() {
                     }
 
                     if packet.typ == UPDATE {
-                        println!("UPDATE");
+                        println!("UPDATE: {:?}", packet);
                     }
                 }
             }
         }
     }
-
-    // let mut got_syn = false;
-    // let mut connection = false;
-    // loop {
-    //     let mut buf = [0; 1];
-    //     if let Ok(_) = port.read_exact(&mut buf) {
-    //         if buf[0] == PACKET_START {
-    //             println!("Got Packet");
-    //             let packet = parse_packet(&mut port);
-    //             println!("Packet: {:?}", packet);
-    //
-    //             match packet.typ {
-    //                 SYN => {
-    //                     got_syn = true;
-    //                     send_syn_ack(&mut port);
-    //                 }
-    //
-    //                 ACK => {
-    //                     if got_syn {
-    //                         connection = true;
-    //                     }
-    //                 }
-    //
-    //                 _ => println!("Expceted SYN/ACK Packet: {}", packet.typ),
-    //             }
-    //         }
-    //     }
-    //
-    //     if connection {
-    //         println!("Got connection");
-    //         break;
-    //     }
-    // }
-    //
-    // send_ping(&mut port);
-    //
-    // loop {
-    //     let mut buf = [0; 1];
-    //     if let Ok(_) = port.read_exact(&mut buf) {
-    //         if buf[0] == PACKET_START {
-    //             let packet = parse_packet(&mut port);
-    //             if packet.typ == PONG {
-    //                 println!("Got pong");
-    //             }
-    //
-    //             if packet.typ == UPDATE {
-    //                 println!("UPDATE");
-    //             }
-    //         }
-    //     }
-    // }
 }

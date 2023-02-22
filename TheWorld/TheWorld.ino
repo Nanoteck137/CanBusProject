@@ -30,7 +30,7 @@ const int SUCCESS = 0;
 const int UNKNOWN_ERROR = 0;
 
 struct Packet {
-    int type;
+    uint8_t type;
     uint8_t pid;
     size_t data_length;
     uint8_t *data;
@@ -72,6 +72,8 @@ void send_packet(uint8_t type, uint8_t *data, uint8_t len) {
     // Start byte
     write_u8(START);
 
+    uint8_t checksum_start = buf_ptr;
+
     // PID
     write_u8(pid++);
 
@@ -87,7 +89,7 @@ void send_packet(uint8_t type, uint8_t *data, uint8_t len) {
     }
 
     size_t checksum_len = (size_t)(buf_ptr - start);
-    uint16_t checksum = tusk_checksum(start, checksum_len);
+    uint16_t checksum = tusk_checksum(checksum_start, checksum_len);
 
     // CHECKSUM
     write_u16(checksum);
@@ -136,49 +138,6 @@ void setup() {
     Serial.begin(9600);
     pinMode(LED_BUILTIN, OUTPUT);
 
-    // while(!Serial);
-    //
-    // send_empty_packet(SYN);
-    //
-    // bool connection = false;
-    // while(!connection) {
-    //     if(Serial.available() > 0) {
-    //         int r = Serial.read();
-    //         if(r == START) {
-    //             Packet packet;
-    //             if(parse_packet(&packet) == SUCCESS) {
-    //                 if(packet.type == SYN_ACK) {
-    //                     send_empty_packet(ACK);
-    //                     connection = true;
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-    //
-    //
-    // bool test = false;
-    // unsigned long last = millis();
-    // while(connection) {
-    //     if(Serial.available() > 0) {
-    //         int r = Serial.read();
-    //         if(r == START) {
-    //             Packet packet;
-    //             if(parse_packet(&packet) == SUCCESS) {
-    //                 if(packet.type == PING) {
-    //                     test = true;
-    //                     send_empty_packet(PONG);
-    //                 }
-    //             }
-    //         }
-    //     }
-    //
-    //     if(test && (millis() - last) > 2000) {
-    //         send_empty_packet(UPDATE);
-    //         last = millis();
-    //     }
-    // }
-    //
     last = millis();
 }
 
@@ -222,7 +181,8 @@ void loop() {
         }
 
         if((millis() - last) > 2000) {
-            send_empty_packet(UPDATE);
+            uint8_t data[] = { 123 };
+            send_packet(UPDATE, data, sizeof(data));
             last = millis();
         }
     }
