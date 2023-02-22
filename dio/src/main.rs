@@ -26,8 +26,8 @@ fn parse_packet(port: &mut Box<dyn serialport::SerialPort>) -> Packet {
     let mut pid = None;
     let mut typ = None;
     let mut data_len = None;
-    let mut data = None;
-    let mut checksum = None;
+    let data;
+    let checksum;
 
     loop {
         // Read the header of the packet
