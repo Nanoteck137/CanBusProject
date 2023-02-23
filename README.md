@@ -10,6 +10,7 @@ Create a custom Can Bus for a car
   - [ ] Configuration 
   - [ ] Inputs 
   - [ ] Outputs
+  - [ ] Can Bus Messages
 - [ ] Create schematic for the devices
 
 ## Devices
