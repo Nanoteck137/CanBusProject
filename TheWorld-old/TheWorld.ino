@@ -72,7 +72,7 @@ void send_packet(uint8_t type, uint8_t *data, uint8_t len) {
     // Start byte
     write_u8(START);
 
-    uint8_t checksum_start = buf_ptr;
+    uint8_t *checksum_start = buf_ptr;
 
     // PID
     write_u8(pid++);

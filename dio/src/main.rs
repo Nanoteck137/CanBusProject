@@ -118,7 +118,14 @@ fn send_empty_packet(port: &mut Box<dyn serialport::SerialPort>, typ: u8) {
 }
 
 fn main() {
-    let mut port = serialport::new("/dev/cu.usbserial-120", 9600)
+    // let ports = serialport::available_ports();
+    // for port in ports {
+    //     println!("{:#?}", port);
+    // }
+    //
+    // return;
+
+    let mut port = serialport::new("/dev/cu.usbmodem1201", 9600)
         // .timeout(Duration::from_millis(5000))
         .open()
         .unwrap();
