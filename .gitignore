@@ -1,5 +1,7 @@
 .vscode/
 
+/build
+
 # Added by cargo
 
 /target
