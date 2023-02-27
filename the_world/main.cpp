@@ -5,6 +5,10 @@
 
 const uint LEDPIN = 25;
 
+// NOTE(patrik):
+//   - USB for Serial Communication
+//   - UART for Debugging
+
 int main()
 {
     stdio_init_all();
