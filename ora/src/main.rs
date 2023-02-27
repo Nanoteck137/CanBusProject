@@ -1,7 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 
-fn generate_cmake_project<P>(target: P, name: &str, path: P)
+fn generate_cmake_project<P>(path: P, target: P)
 where
     P: AsRef<Path>,
 {
@@ -34,9 +34,9 @@ where
 
 fn main() {
     // TODO(patrik): Compile "the world"
-    // TODO(patrik): Compile "dio"
     // TODO(patrik): Upload the world to a pico using picoprobe
+
     std::fs::create_dir_all("build/the_world").unwrap();
-    generate_cmake_project("build/the_world", "the_world", "the_world");
+    generate_cmake_project("the_world", "build/the_world");
     compile_with_make("build/the_world");
 }
