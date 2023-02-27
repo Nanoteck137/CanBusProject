@@ -146,6 +146,10 @@ fn print_port(port: &SerialPortInfo) {
 
 fn choose_port() -> SerialPortInfo {
     let ports = serialport::available_ports().unwrap();
+    for port in &ports {
+        println!("Port: {:#?}", port);
+    }
+
     let ports = ports
         .iter()
         .filter(|i| {
