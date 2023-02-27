@@ -1,5 +1,9 @@
+use std::io::Write;
+use std::mem::ManuallyDrop;
 use std::sync::atomic::AtomicU8;
-use std::time::Instant;
+use std::time::{Duration, Instant};
+
+use serialport::{SerialPortInfo, SerialPortType};
 
 const PACKET_START: u8 = 0x4e;
 
@@ -117,25 +121,72 @@ fn send_empty_packet(port: &mut Box<dyn serialport::SerialPort>, typ: u8) {
     send_packet(port, typ, &[]);
 }
 
-fn main() {
-    // let ports = serialport::available_ports();
-    // for port in ports {
-    //     println!("{:#?}", port);
-    // }
-    //
-    // return;
+fn print_port(port: &SerialPortInfo) {
+    if let SerialPortType::UsbPort(info) = &port.port_type {
+        // pub vid: u16,
+        // pub pid: u16,
+        // pub serial_number: Option<String>,
+        // pub manufacturer: Option<String>,
+        // pub product: Option<String>,
 
-    let mut port = serialport::new("/dev/cu.usbmodem1201", 9600)
-        // .timeout(Duration::from_millis(5000))
+        if let Some(product) = &info.product {
+            print!(" {}", product);
+        }
+
+        if let Some(manufacturer) = &info.manufacturer {
+            print!(" ({})", manufacturer);
+        }
+
+        print!(" {}", port.port_name);
+        println!();
+    } else {
+        panic!("Only USB based serial ports is supported");
+    }
+}
+
+fn choose_port() -> SerialPortInfo {
+    let ports = serialport::available_ports().unwrap();
+    let ports = ports
+        .iter()
+        .filter(|i| {
+            matches!(i.port_type, serialport::SerialPortType::UsbPort(..))
+        })
+        .collect::<Vec<_>>();
+
+    for i in 0..ports.len() {
+        let port = &ports[i];
+        print!("{}:", i);
+        print_port(port);
+    }
+
+    let index = loop {
+        print!("Choose device: ");
+        std::io::stdout().flush().unwrap();
+
+        let mut buffer = String::new();
+        std::io::stdin().read_line(&mut buffer).unwrap();
+
+        match buffer.trim_end().parse::<usize>() {
+            Ok(num) => break num,
+            Err(_) => continue,
+        }
+    };
+
+    ports[index].clone()
+}
+
+fn main() {
+    let port = choose_port();
+    print!("Using port: ");
+    print_port(&port);
+
+    // TODO(patrik): Override the baud rate
+    let mut port = serialport::new(port.port_name.clone(), 115200)
+        .timeout(Duration::from_millis(5000))
         .open()
         .unwrap();
 
     let mut last = Instant::now();
-
-    // Send SYN
-    // Wait for SYN-ACK
-    // If timeout is first then resend SYN
-    // If SYN-ACK arrives first then send ACK
 
     let connection;
     send_empty_packet(&mut port, SYN);
