@@ -7,6 +7,7 @@
 #include "hardware/gpio.h"
 #include "hardware/timer.h"
 #include "pico/stdlib.h"
+#include "pico/stdio/driver.h"
 
 #include "bsp/board.h"
 #include "tusb.h"
@@ -17,16 +18,18 @@ const uint LEDPIN = 25;
 //   - USB for Serial Communication
 //   - UART for Debugging
 
-static void cdc_task(void)
+const uint8_t PORT_CMD = 0;
+const uint8_t PORT_DEBUG = 1;
+
+static void debug_driver_output(const char* buf, int length)
 {
-    tud_cdc_n_write_str(0, "Hello World\r\n");
-    tud_cdc_n_write_flush(0);
-
-    tud_cdc_n_write_str(1, "Hello World from Other\r\n");
-    tud_cdc_n_write_flush(1);
-
-    // sleep_ms(0);
+    tud_cdc_n_write(PORT_DEBUG, buf, length);
+    tud_cdc_n_write_flush(PORT_DEBUG);
 }
+
+stdio_driver_t debug_driver = {
+    .out_chars = debug_driver_output,
+};
 
 int main()
 {
@@ -35,15 +38,7 @@ int main()
     board_init();
     tusb_init();
 
-    // typedef struct TU_ATTR_PACKED
-    // {
-    //     uint32_t bit_rate;
-    //     uint8_t
-    //         stop_bits;  ///< 0: 1 stop bit - 1: 1.5 stop bits - 2: 2 stop
-    //         bits
-    //     uint8_t parity; ///< 0: None - 1: Odd - 2: Even - 3: Mark - 4: Space
-    //     uint8_t data_bits; ///< can be 5, 6, 7, 8 or 16
-    // } cdc_line_coding_t;
+    stdio_set_driver_enabled(&debug_driver, true);
 
     uint64_t last = time_us_64();
 
@@ -54,7 +49,7 @@ int main()
         uint64_t current = time_us_64();
         if ((current - last) > 1000 * 1000)
         {
-            cdc_task();
+            printf("Testing %d\n", tud_cdc_n_connected(PORT_CMD));
             last = time_us_64();
         }
     }
