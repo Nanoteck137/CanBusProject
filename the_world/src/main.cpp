@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+#include "FreeRTOS.h"
+#include "task.h"
+
 #include "class/cdc/cdc_device.h"
 #include "hardware/gpio.h"
 #include "hardware/timer.h"
@@ -40,6 +43,7 @@ void init_system()
     board_init();
     tusb_init();
 
+    stdio_uart_init();
     stdio_set_driver_enabled(&debug_driver, true);
 }
 
@@ -59,16 +63,19 @@ static bool last_connected = false;
 
 int recv_packet(Packet* packet) { return 0; }
 
-int main()
+void usb_thread(void* ptr)
 {
-    init_system();
-
-    uint64_t last = time_us_64();
-
-    while (1)
+    do
     {
         tud_task();
+        vTaskDelay(1);
+    } while (1);
+}
 
+void test_thread(void* ptr)
+{
+    do
+    {
         bool connected = tud_cdc_n_connected(PORT_CMD);
 
         if (connected && !last_connected)
@@ -83,11 +90,39 @@ int main()
 
         last_connected = connected;
 
-        uint64_t current = time_us_64();
-        if (current - last > 1000 * 1000)
+        uint32_t avail = tud_cdc_n_available(PORT_CMD);
+        if (avail >= 2)
         {
-            printf("Test\n");
-            last = current;
+            uint8_t buf[2];
+            uint32_t b = tud_cdc_n_read(PORT_CMD, &buf, sizeof(buf));
+            printf("Got %d bytes: 0x%x 0x%x\n", b, buf[0], buf[1]);
         }
-    }
+
+        vTaskDelay(1);
+    } while (1);
 }
+
+static TaskHandle_t usb_thread_handle;
+static TaskHandle_t test_thread_handle;
+
+int main()
+{
+    init_system();
+
+    xTaskCreate(usb_thread, "USB Thread", configMINIMAL_STACK_SIZE, nullptr,
+                tskIDLE_PRIORITY + 2, &usb_thread_handle);
+    xTaskCreate(test_thread, "Test Thread", configMINIMAL_STACK_SIZE, nullptr,
+                tskIDLE_PRIORITY + 1, &test_thread_handle);
+
+    vTaskStartScheduler();
+}
+
+extern "C" void vApplicationTickHook() {}
+
+extern "C" void vApplicationStackOverflowHook(TaskHandle_t Task,
+                                              char* pcTaskName)
+{
+    panic("stack overflow (not the helpful kind) for %s\n", *pcTaskName);
+}
+
+extern "C" void vApplicationMallocFailedHook() { panic("Malloc Failed\n"); }
