@@ -1,6 +1,21 @@
 use std::path::Path;
 use std::process::Command;
 
+use clap::{Parser, Subcommand};
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[command(subcommand)]
+    action: Action,
+}
+
+#[derive(Subcommand, Debug)]
+enum Action {
+    /// Compile firmware
+    Firmware {},
+}
+
 fn generate_cmake_project<P>(path: P, target: P)
 where
     P: AsRef<Path>,
@@ -19,7 +34,13 @@ where
         .arg("Unix Makefiles")
         .status()
         .unwrap();
-    println!("Test: {:?}", status);
+    if !status.success() {
+        panic!(
+            "Failed to execute CMake ({}): {:?}",
+            status.code().unwrap_or_else(|| 0),
+            source
+        );
+    }
 }
 
 fn compile_with_make<P>(path: P)
@@ -29,14 +50,29 @@ where
     let path = path.as_ref();
 
     let status = Command::new("make").arg("-C").arg(path).status().unwrap();
-    println!("Status: {:?}", status);
+
+    if !status.success() {
+        panic!(
+            "Failed to execute make ({}): {:?}",
+            status.code().unwrap_or_else(|| 0),
+            path
+        );
+    }
 }
 
 fn main() {
-    // TODO(patrik): Compile "the world"
-    // TODO(patrik): Upload the world to a pico using picoprobe
+    let args = Args::parse();
 
-    std::fs::create_dir_all("build/the_world").unwrap();
-    generate_cmake_project("the_world", "build/the_world");
-    compile_with_make("build/the_world");
+    match args.action {
+        Action::Firmware {} => {
+            println!("---------------------------------------------");
+            std::fs::create_dir_all("build/the_world").unwrap();
+            println!("Running cmake");
+            generate_cmake_project("the_world", "build/the_world");
+            println!();
+            println!("Running make");
+            compile_with_make("build/the_world");
+            println!("---------------------------------------------");
+        }
+    }
 }
