@@ -133,6 +133,7 @@ dependencies = [
 name = "dio"
 version = "0.1.0"
 dependencies = [
+ "clap",
  "serial2",
  "serialport",
  "tusk-rs",

@@ -1,8 +1,8 @@
 use std::io::Write;
-use std::mem::ManuallyDrop;
 use std::sync::atomic::AtomicU8;
 use std::time::{Duration, Instant};
 
+use clap::{Parser, Subcommand};
 use serialport::{SerialPortInfo, SerialPortType};
 
 const PACKET_START: u8 = 0x4e;
@@ -15,6 +15,28 @@ const PONG: u8 = 0x05;
 const UPDATE: u8 = 0x06;
 
 static PID: AtomicU8 = AtomicU8::new(1);
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[command(subcommand)]
+    action: Action,
+}
+
+#[derive(Subcommand, Debug)]
+enum Action {
+    List,
+    Debug {
+        // #[arg(short, long)]
+        port: String,
+
+        #[arg(short, long, default_value_t = 115200)]
+        baudrate: u32,
+    },
+
+    // TODO(patrik): Better name?
+    Run {},
+}
 
 #[derive(Debug)]
 struct Packet {
@@ -179,60 +201,86 @@ fn choose_port() -> SerialPortInfo {
     ports[index].clone()
 }
 
-fn main() {
-    let port = choose_port();
-    print!("Using port: ");
-    print_port(&port);
-
-    // TODO(patrik): Override the baud rate
-    let mut port = serialport::new(port.port_name.clone(), 115200)
+fn run_debug_monitor(port: &String, baudrate: u32) {
+    let mut port = serialport::new(port, baudrate)
         .timeout(Duration::from_millis(5000))
         .open()
         .unwrap();
 
-    let mut last = Instant::now();
-
-    let connection;
-    send_empty_packet(&mut port, SYN);
     loop {
-        if last.elapsed().as_millis() > 2000 {
-            println!("Resend SYN");
-            send_empty_packet(&mut port, SYN);
-            last = Instant::now();
-        }
-
         let mut buf = [0; 1];
-        if let Ok(_) = port.read_exact(&mut buf) {
-            if buf[0] == PACKET_START {
-                let packet = parse_packet(&mut port);
-                if packet.typ == SYN_ACK {
-                    println!("Got SYN-ACK send ACK");
-                    send_empty_packet(&mut port, ACK);
-                    connection = true;
-                    break;
-                }
+        port.read(&mut buf).unwrap();
+        std::io::stdout().write(&buf).unwrap();
+    }
+}
+
+fn main() {
+    let args = Args::parse();
+    println!("Args: {:#?}", args);
+
+    match args.action {
+        Action::List => {
+            let ports = serialport::available_ports().unwrap();
+            for port in ports {
+                println!("{}", port.port_name);
             }
+
+            return;
         }
+
+        Action::Debug { port, baudrate } => run_debug_monitor(&port, baudrate),
+        Action::Run {} => todo!(),
     }
 
-    if connection {
-        println!("Got connection");
-
-        loop {
-            let mut buf = [0; 1];
-            if let Ok(_) = port.read_exact(&mut buf) {
-                if buf[0] == PACKET_START {
-                    let packet = parse_packet(&mut port);
-                    if packet.typ == PING {
-                        println!("Got ping");
-                        send_empty_packet(&mut port, PONG);
-                    }
-
-                    if packet.typ == UPDATE {
-                        println!("UPDATE: {:?}", packet);
-                    }
-                }
-            }
-        }
-    }
+    // // TODO(patrik): Override the baud rate
+    // let mut port = serialport::new(port.port_name.clone(), 115200)
+    //     .timeout(Duration::from_millis(5000))
+    //     .open()
+    //     .unwrap();
+    //
+    // let mut last = Instant::now();
+    //
+    // let connection;
+    // send_empty_packet(&mut port, SYN);
+    // loop {
+    //     if last.elapsed().as_millis() > 2000 {
+    //         println!("Resend SYN");
+    //         send_empty_packet(&mut port, SYN);
+    //         last = Instant::now();
+    //     }
+    //
+    //     let mut buf = [0; 1];
+    //     if let Ok(_) = port.read_exact(&mut buf) {
+    //         if buf[0] == PACKET_START {
+    //             let packet = parse_packet(&mut port);
+    //             if packet.typ == SYN_ACK {
+    //                 println!("Got SYN-ACK send ACK");
+    //                 send_empty_packet(&mut port, ACK);
+    //                 connection = true;
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
+    //
+    // if connection {
+    //     println!("Got connection");
+    //
+    //     loop {
+    //         let mut buf = [0; 1];
+    //         if let Ok(_) = port.read_exact(&mut buf) {
+    //             if buf[0] == PACKET_START {
+    //                 let packet = parse_packet(&mut port);
+    //                 if packet.typ == PING {
+    //                     println!("Got ping");
+    //                     send_empty_packet(&mut port, PONG);
+    //                 }
+    //
+    //                 if packet.typ == UPDATE {
+    //                     println!("UPDATE: {:?}", packet);
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 }
