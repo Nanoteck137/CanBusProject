@@ -58,12 +58,11 @@ const uint8_t UPDATE = 0x06;
 
 struct Packet
 {
+    uint8_t pid;
     uint8_t typ;
+    uint8_t data_len;
+    uint16_t checksum;
 };
-
-static bool last_connected = false;
-
-int recv_packet(Packet* packet) { return 0; }
 
 void usb_thread(void* ptr)
 {
@@ -74,69 +73,72 @@ void usb_thread(void* ptr)
     } while (1);
 }
 
-enum class PacketState
+void read(uint8_t* buffer, uint32_t len)
 {
-    FoundStart,
-};
+    for (uint32_t i = 0; i < len; i++)
+    {
+        while (tud_cdc_n_available(PORT_CMD) < 1)
+            ;
 
-void read_from_cmd(uint8_t* buffer, uint32_t len)
-{
-    while (tud_cdc_n_available(PORT_CMD) < len)
-        ;
-
-    tud_cdc_n_read(PORT_CMD, buffer, len);
+        tud_cdc_n_read(PORT_CMD, buffer + i, 1);
+    }
 }
 
-static uint8_t buffer[256];
+uint8_t read_u8()
+{
+    uint8_t res;
+    read(&res, sizeof(res));
+
+    return res;
+}
+
+uint16_t read_u16()
+{
+    uint8_t res[2];
+    read(res, sizeof(res));
+
+    return (uint16_t)res[1] << 8 | (uint16_t)res[0];
+}
+
+static uint8_t data_buffer[256];
+
+Packet parse_packet()
+{
+    uint8_t pid = read_u8();
+    uint8_t typ = read_u8();
+    uint8_t data_len = read_u8();
+
+    read(data_buffer, (uint32_t)data_len);
+
+    uint16_t checksum = read_u16();
+
+    Packet packet;
+    packet.pid = pid;
+    packet.typ = typ;
+    packet.data_len = data_len;
+    packet.checksum = checksum;
+
+    return packet;
+}
 
 void test_thread(void* ptr)
 {
     do
     {
-        bool connected = tud_cdc_n_connected(PORT_CMD);
-
-        if (connected && !last_connected)
-        {
-            printf("User Connected\n");
-        }
-
-        if (!connected && last_connected)
-        {
-            printf("User Disconnect\n");
-        }
-
-        last_connected = connected;
-
         if (tud_cdc_n_available(PORT_CMD) > 0)
         {
-            uint8_t start;
-            // tud_cdc_n_read(PORT_CMD, &start, 1);
-            read_from_cmd(&start, 1);
-
-            if (start == PACKET_START)
+            uint8_t b = read_u8();
+            if (b == PACKET_START)
             {
-                printf("Got PACKET Start\n");
-
-                uint8_t buf[3];
-                read_from_cmd(buf, 3);
-
-                uint8_t pid = buf[0];
-                uint8_t typ = buf[1];
-                uint8_t data_len = buf[2];
-
-                printf("Got HEADER\n");
-
-                // TODO(patrik): Read data
-
-                read_from_cmd(buffer, (uint32_t)data_len);
-
-                uint8_t checksum[2];
-                read_from_cmd(checksum, sizeof(checksum));
-
-                uint16_t check = checksum[1] << 8 | checksum[0];
-
-                printf("PID: %d TYP: %d LEN: %d Checksum: 0x%x\n", pid, typ,
-                       data_len, check);
+                Packet packet = parse_packet();
+                printf("Got Packet: 0x%x %d\n", packet.typ, packet.data_len);
+                for (int i = 0; i < packet.data_len; i++)
+                {
+                    if (i % 8 == 0)
+                        printf("\n");
+                    printf("0x%x ", data_buffer[i]);
+                }
+                printf("\n");
             }
         }
 

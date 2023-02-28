@@ -126,7 +126,7 @@ fn send_packet(
     buf.push(pid);
     buf.push(typ);
 
-    assert!(data.len() < 28);
+    // assert!(data.len() < 28);
     buf.push(data.len() as u8);
     buf.extend_from_slice(data);
 
@@ -225,7 +225,10 @@ fn run(port: &String, baudrate: u32) {
         .unwrap();
 
     // port.write(&[0xfe, 0xff]).unwrap();
-    send_empty_packet(&mut port, SYN)
+    let data = (0..255).map(|i| i).collect::<Vec<u8>>();
+    println!("Data: {}", data.len());
+    println!("{:?}", data);
+    send_packet(&mut port, 0, &data);
 }
 
 fn main() {
