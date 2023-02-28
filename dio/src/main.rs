@@ -1,6 +1,6 @@
 use std::io::Write;
 use std::sync::atomic::AtomicU8;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use clap::{Parser, Subcommand};
 use serialport::{SerialPortInfo, SerialPortType};
@@ -27,7 +27,6 @@ struct Args {
 enum Action {
     List,
     Debug {
-        // #[arg(short, long)]
         port: String,
 
         #[arg(short, long, default_value_t = 115200)]
@@ -35,7 +34,12 @@ enum Action {
     },
 
     // TODO(patrik): Better name?
-    Run {},
+    Run {
+        port: String,
+
+        #[arg(short, long, default_value_t = 115200)]
+        baudrate: u32,
+    },
 }
 
 #[derive(Debug)]
@@ -214,9 +218,17 @@ fn run_debug_monitor(port: &String, baudrate: u32) {
     }
 }
 
+fn run(port: &String, baudrate: u32) {
+    let mut port = serialport::new(port, baudrate)
+        .timeout(Duration::from_millis(5000))
+        .open()
+        .unwrap();
+
+    port.write(&[0xfe, 0xff]).unwrap();
+}
+
 fn main() {
     let args = Args::parse();
-    println!("Args: {:#?}", args);
 
     match args.action {
         Action::List => {
@@ -229,7 +241,7 @@ fn main() {
         }
 
         Action::Debug { port, baudrate } => run_debug_monitor(&port, baudrate),
-        Action::Run {} => todo!(),
+        Action::Run { port, baudrate } => run(&port, baudrate),
     }
 
     // // TODO(patrik): Override the baud rate
