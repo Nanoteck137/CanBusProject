@@ -47,6 +47,8 @@ void init_system()
     stdio_set_driver_enabled(&debug_driver, true);
 }
 
+const uint8_t PACKET_START = 0x4e;
+
 const uint8_t SYN = 0x01;
 const uint8_t SYN_ACK = 0x02;
 const uint8_t ACK = 0x03;
@@ -72,6 +74,21 @@ void usb_thread(void* ptr)
     } while (1);
 }
 
+enum class PacketState
+{
+    FoundStart,
+};
+
+void read_from_cmd(uint8_t* buffer, uint32_t len)
+{
+    while (tud_cdc_n_available(PORT_CMD) < len)
+        ;
+
+    tud_cdc_n_read(PORT_CMD, buffer, len);
+}
+
+static uint8_t buffer[256];
+
 void test_thread(void* ptr)
 {
     do
@@ -90,12 +107,37 @@ void test_thread(void* ptr)
 
         last_connected = connected;
 
-        uint32_t avail = tud_cdc_n_available(PORT_CMD);
-        if (avail >= 2)
+        if (tud_cdc_n_available(PORT_CMD) > 0)
         {
-            uint8_t buf[2];
-            uint32_t b = tud_cdc_n_read(PORT_CMD, &buf, sizeof(buf));
-            printf("Got %d bytes: 0x%x 0x%x\n", b, buf[0], buf[1]);
+            uint8_t start;
+            // tud_cdc_n_read(PORT_CMD, &start, 1);
+            read_from_cmd(&start, 1);
+
+            if (start == PACKET_START)
+            {
+                printf("Got PACKET Start\n");
+
+                uint8_t buf[3];
+                read_from_cmd(buf, 3);
+
+                uint8_t pid = buf[0];
+                uint8_t typ = buf[1];
+                uint8_t data_len = buf[2];
+
+                printf("Got HEADER\n");
+
+                // TODO(patrik): Read data
+
+                read_from_cmd(buffer, (uint32_t)data_len);
+
+                uint8_t checksum[2];
+                read_from_cmd(checksum, sizeof(checksum));
+
+                uint16_t check = checksum[1] << 8 | checksum[0];
+
+                printf("PID: %d TYP: %d LEN: %d Checksum: 0x%x\n", pid, typ,
+                       data_len, check);
+            }
         }
 
         vTaskDelay(1);

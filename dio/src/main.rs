@@ -224,7 +224,8 @@ fn run(port: &String, baudrate: u32) {
         .open()
         .unwrap();
 
-    port.write(&[0xfe, 0xff]).unwrap();
+    // port.write(&[0xfe, 0xff]).unwrap();
+    send_empty_packet(&mut port, SYN)
 }
 
 fn main() {
