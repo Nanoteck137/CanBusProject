@@ -11,8 +11,45 @@ Create a custom Can Bus for a car
   - [ ] Configuration
   - [ ] Inputs
   - [ ] Outputs
-  - [ ] Can Bus Messages
+  - [ ] Can Bus 
+  - [ ] Communication
 - [ ] Create schematic for the devices
+
+## Protocol
+
+### Packet Structure
+Start (1-Byte)
+Packet Type (1-Byte)
+Data Length (1-Byte)
+Data (Data Length)
+Checksum (2-Byte, NOT USED YET)
+
+### Packet Types
+- IDENTIFY
+  - No data
+- COMMAND
+  - Command (1-byte)
+  - Command Body
+- PING
+  - No data
+- UPDATE
+  - Update Data
+  - No response
+- RES
+  - Response Code (1-Byte)
+  - Reposnse Body
+    - For success this can be data we need to return
+    - For errors the byte after the response code is the error code
+
+### Response Codes
+- Success (0x00)
+- Error (0x01)
+
+### Commands
+- SET
+- GET
+- CONFIGURE
+  - Send Updates (bool/1-Byte) 0/off >1/on
 
 ## Devices
 
