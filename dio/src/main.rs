@@ -219,16 +219,80 @@ fn wait_for_packet(port: &mut Box<dyn serialport::SerialPort>) -> Packet {
     }
 }
 
+struct Version(u16);
+
+impl Version {
+    fn major(&self) -> u8 {
+        ((self.0 >> 10) & 0x3f) as u8
+    }
+
+    fn minor(&self) -> u8 {
+        ((self.0 >> 4) & 0x3f) as u8
+    }
+
+    fn patch(&self) -> u8 {
+        ((self.0) & 0xf) as u8
+    }
+}
+
+impl std::fmt::Debug for Version {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}.{}", self.major(), self.minor(), self.patch())?;
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct Identify {
+    version: Version,
+    typ: u8,
+    name: String,
+}
+
+impl Identify {
+    fn parse(data: &[u8]) -> Option<Self> {
+        if data.len() < 2 + 1 + 32 {
+            return None;
+        }
+
+        let version = u16::from_le_bytes(data[0..2].try_into().ok()?);
+        let typ = data[2];
+        let name = &data[3..];
+
+        let find_zero = |a: &[u8]| {
+            for i in 0..a.len() {
+                if a[i] == 0 {
+                    return i;
+                }
+            }
+
+            a.len()
+        };
+
+        let index = find_zero(name);
+        let name = std::str::from_utf8(&name[0..index]).ok()?;
+
+        Some(Identify {
+            version: Version(version),
+            typ,
+            name: name.to_string(),
+        })
+    }
+}
+
 fn run(port: &String, baudrate: u32) {
     let mut port = serialport::new(port, baudrate)
         // .timeout(Duration::from_millis(5000))
         .open()
         .unwrap();
 
-    send_packet(&mut port, PacketType::Configure, &[0x00]);
+    send_empty_packet(&mut port, PacketType::Identify);
     let packet = wait_for_packet(&mut port);
-    println!("Type: {:#?}", tusk_rs::Ack::try_from(packet.data[0]));
-    println!("Packet: {:#x?}", packet);
+    println!("Packet: {:#?}", Identify::parse(&packet.data[1..]));
+
+    send_empty_packet(&mut port, PacketType::Ping);
+    let packet = wait_for_packet(&mut port);
+    println!("Packet: {:?}", packet);
 }
 
 fn main() {
