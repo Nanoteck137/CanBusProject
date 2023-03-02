@@ -186,6 +186,74 @@ void send_empty_packet(uint8_t typ) { send_packet(typ, nullptr, 0); }
 
 static bool send_updates = false;
 
+static uint8_t temp[256];
+
+void send_success(uint8_t* data, uint8_t len)
+{
+    // TODO(patrik): Check len
+    temp[0] = ResSuccess;
+    uint8_t data_length = 1;
+
+    if (data && len > 0)
+    {
+        memcpy(temp + 1, data, len);
+        data_length += len;
+    }
+
+    send_packet(PacketResponse, temp, data_length);
+}
+
+void send_error(uint8_t err)
+{
+    uint8_t data[] = {ResError, err};
+    send_packet(PacketResponse, data, sizeof(data));
+}
+
+enum MCUType : uint8_t
+{
+    Mcu_TheWorldOverHeven,
+};
+
+static const char name[] = "DAAAAAAAAAAAAAAGHBBBBBBBBBBBBBBC";
+static_assert(sizeof(name) <= 33, "32 character limit on the name");
+
+void identify()
+{
+#define MAKE_VERSION(major, minor, patch)                                      \
+    (((uint16_t)(major)) & 0x3f) << 10 | (((uint16_t)(minor)) & 0x3f) << 4 |   \
+        ((uint16_t)(patch)) & 0xf
+
+    uint16_t version = MAKE_VERSION(1, 0, 1);
+    printf("Version: 0x%x\n", version);
+
+    uint8_t buffer[2 + 1 + 32] = {0};
+    // Version
+    // aaaaaabb bbbbcccc
+    // 0: aaaaaabb
+    // 1: bbbbcccc
+    //   - a: Major
+    //   - b: Minor
+    //   - c: Patch
+    buffer[0] = version & 0xff;
+    buffer[1] = (version >> 8) & 0xff;
+
+    // Type
+    buffer[2] = Mcu_TheWorldOverHeven;
+
+    memcpy(buffer + 3, name, strlen(name));
+
+    // NOTE(patrik): Identify
+    // - Version (0.1) (2-bytes) (MAJOR MINOR PATCH)
+    // - Type (0x01) (The World over heaven) (1-byte)
+    // - Name (Main Control Unit) (32-bytes MAX)
+    // send_error(0xfe);
+    send_success(buffer, sizeof(buffer));
+}
+void command() { send_error(0xfd); }
+void ping() { send_success(nullptr, 0); }
+void update() { send_error(0xff); };
+void response() { send_error(0xff); };
+
 void handle_packets()
 {
     if (tud_cdc_n_available(PORT_CMD) > 0)
@@ -197,51 +265,15 @@ void handle_packets()
 
             switch (packet.typ)
             {
-                case Packet_Ping: {
-                    uint8_t buf[] = {Ack_Pong};
-                    send_packet(Packet_Ack, buf, sizeof(buf));
-                }
-                break;
-
-                case Packet_Set: {
-                    uint8_t var = read_u8_from_data();
-
-                    uint32_t value = read_u32_from_data();
-                    printf("Setting '%d' = 0x%x\n", var, value);
-
-                    uint8_t buf[] = {Ack_Success};
-                    send_packet(Packet_Ack, buf, sizeof(buf));
-                }
-                break;
-
-                case Packet_Get: {
-                    uint8_t var = read_u8_from_data();
-                    printf("Getting '%d'\n", var);
-
-                    uint32_t value = 0xffddeecc;
-
-                    uint8_t buf[5] = {Ack_Success};
-                    buf[1] = value & 0xff;
-                    buf[2] = value >> 8 & 0xff;
-                    buf[3] = value >> 16 & 0xff;
-                    buf[4] = value >> 24 & 0xff;
-
-                    send_packet(Packet_Ack, buf, sizeof(buf));
-                }
-                break;
-
-                case Packet_Configure: {
-                    send_updates = read_u8_from_data() > 0 ? true : false;
-
-                    uint8_t buf[] = {Ack_Success};
-                    send_packet(Packet_Ack, buf, sizeof(buf));
-                }
-                break;
+                case PacketIdentify: identify(); break;
+                case PacketCommand: command(); break;
+                case PacketPing: ping(); break;
+                case PacketUpdate: update(); break;
+                case PacketResponse: response(); break;
 
                 default:
-                    uint8_t buf[] = {Ack_ErrorUnknownPacketType};
-                    send_packet(Packet_Ack, buf, sizeof(buf));
-                    printf("Error: Unknown Packet Type: 0x%x\n", packet.typ);
+                    // TODO(patrik): Change the error
+                    send_error(0xff);
                     break;
             }
         }
