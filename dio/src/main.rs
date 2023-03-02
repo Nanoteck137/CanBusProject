@@ -4,15 +4,7 @@ use std::time::Duration;
 
 use clap::{Parser, Subcommand};
 use serialport::{SerialPortInfo, SerialPortType};
-
-const PACKET_START: u8 = 0x4e;
-
-const SYN: u8 = 0x01;
-const SYN_ACK: u8 = 0x02;
-const ACK: u8 = 0x03;
-const PING: u8 = 0x04;
-const PONG: u8 = 0x05;
-const UPDATE: u8 = 0x06;
+use tusk_rs::{PacketType, PACKET_START};
 
 static PID: AtomicU8 = AtomicU8::new(1);
 
@@ -45,7 +37,7 @@ enum Action {
 #[derive(Debug)]
 struct Packet {
     pid: u8,
-    typ: u8,
+    typ: PacketType,
     data: Vec<u8>,
     checksum: u16,
 }
@@ -107,7 +99,7 @@ fn parse_packet(port: &mut Box<dyn serialport::SerialPort>) -> Packet {
 
     return Packet {
         pid: pid.unwrap(),
-        typ: typ.unwrap(),
+        typ: PacketType::try_from(typ.unwrap()).unwrap(),
         data: data.unwrap(),
         checksum: checksum.unwrap(),
     };
@@ -115,7 +107,7 @@ fn parse_packet(port: &mut Box<dyn serialport::SerialPort>) -> Packet {
 
 fn send_packet(
     port: &mut Box<dyn serialport::SerialPort>,
-    typ: u8,
+    typ: PacketType,
     data: &[u8],
 ) {
     let mut buf = Vec::new();
@@ -124,7 +116,7 @@ fn send_packet(
 
     buf.push(PACKET_START);
     buf.push(pid);
-    buf.push(typ);
+    buf.push(typ.to_u8());
 
     // assert!(data.len() < 28);
     buf.push(data.len() as u8);
@@ -143,18 +135,15 @@ fn send_packet(
     }
 }
 
-fn send_empty_packet(port: &mut Box<dyn serialport::SerialPort>, typ: u8) {
+fn send_empty_packet(
+    port: &mut Box<dyn serialport::SerialPort>,
+    typ: PacketType,
+) {
     send_packet(port, typ, &[]);
 }
 
 fn print_port(port: &SerialPortInfo) {
     if let SerialPortType::UsbPort(info) = &port.port_type {
-        // pub vid: u16,
-        // pub pid: u16,
-        // pub serial_number: Option<String>,
-        // pub manufacturer: Option<String>,
-        // pub product: Option<String>,
-
         if let Some(product) = &info.product {
             print!(" {}", product);
         }
@@ -218,17 +207,28 @@ fn run_debug_monitor(port: &String, baudrate: u32) {
     }
 }
 
+fn wait_for_packet(port: &mut Box<dyn serialport::SerialPort>) -> Packet {
+    loop {
+        let mut buf = [0; 1];
+        if let Ok(_) = port.read_exact(&mut buf) {
+            if buf[0] == PACKET_START {
+                let packet = parse_packet(port);
+                return packet;
+            }
+        }
+    }
+}
+
 fn run(port: &String, baudrate: u32) {
     let mut port = serialport::new(port, baudrate)
-        .timeout(Duration::from_millis(5000))
+        // .timeout(Duration::from_millis(5000))
         .open()
         .unwrap();
 
-    // port.write(&[0xfe, 0xff]).unwrap();
-    let data = (0..255).map(|i| i).collect::<Vec<u8>>();
-    println!("Data: {}", data.len());
-    println!("{:?}", data);
-    send_packet(&mut port, 0, &data);
+    send_packet(&mut port, PacketType::Configure, &[0x00]);
+    let packet = wait_for_packet(&mut port);
+    println!("Type: {:#?}", tusk_rs::Ack::try_from(packet.data[0]));
+    println!("Packet: {:#x?}", packet);
 }
 
 fn main() {
