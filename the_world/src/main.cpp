@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+#include "tusk.h"
+
 #include "FreeRTOS.h"
 #include "task.h"
 
@@ -24,6 +26,9 @@
 //      - Send back result
 //   - Can Bus
 //     - Get MCP2515 working
+
+static uint8_t data_buffer[256];
+static size_t current_data_offset = 0;
 
 const uint8_t PORT_CMD = 0;
 const uint8_t PORT_DEBUG = 1;
@@ -46,15 +51,6 @@ void init_system()
     stdio_uart_init();
     stdio_set_driver_enabled(&debug_driver, true);
 }
-
-const uint8_t PACKET_START = 0x4e;
-
-const uint8_t SYN = 0x01;
-const uint8_t SYN_ACK = 0x02;
-const uint8_t ACK = 0x03;
-const uint8_t PING = 0x04;
-const uint8_t PONG = 0x05;
-const uint8_t UPDATE = 0x06;
 
 struct Packet
 {
@@ -84,6 +80,32 @@ void read(uint8_t* buffer, uint32_t len)
     }
 }
 
+uint8_t read_u8_from_data()
+{
+    uint8_t val = data_buffer[current_data_offset];
+    current_data_offset++;
+
+    return val;
+}
+uint16_t read_u16_from_data()
+{
+    uint16_t val = (uint16_t)data_buffer[current_data_offset + 1] << 8 |
+                   (uint16_t)data_buffer[current_data_offset];
+    current_data_offset += 2;
+
+    return val;
+}
+
+uint32_t read_u32_from_data()
+{
+    uint32_t val = (uint32_t)data_buffer[current_data_offset + 3] << 24 |
+                   (uint32_t)data_buffer[current_data_offset + 2] << 16 |
+                   (uint32_t)data_buffer[current_data_offset + 1] << 8 |
+                   (uint32_t)data_buffer[current_data_offset + 0];
+    current_data_offset += 4;
+    return val;
+}
+
 uint8_t read_u8()
 {
     uint8_t res;
@@ -100,7 +122,22 @@ uint16_t read_u16()
     return (uint16_t)res[1] << 8 | (uint16_t)res[0];
 }
 
-static uint8_t data_buffer[256];
+void write(uint8_t* data, uint32_t len)
+{
+
+    // TODO(patrik): Use this to check if the write buffer is full and
+    // then flush it
+    // uint32_t avail = tud_cdc_n_write_available(PORT_CMD);
+    tud_cdc_n_write(PORT_CMD, data, len);
+}
+
+void write_u8(uint8_t value) { write(&value, 1); }
+
+void write_u16(uint16_t value)
+{
+    write_u8(value & 0xff);
+    write_u8((value >> 8) & 0xff);
+}
 
 Packet parse_packet()
 {
@@ -109,6 +146,7 @@ Packet parse_packet()
     uint8_t data_len = read_u8();
 
     read(data_buffer, (uint32_t)data_len);
+    current_data_offset = 0;
 
     uint16_t checksum = read_u16();
 
@@ -121,29 +159,108 @@ Packet parse_packet()
     return packet;
 }
 
-void test_thread(void* ptr)
+void send_packet(uint8_t typ, uint8_t* data, uint8_t len)
 {
-    do
+    write_u8(PACKET_START);
+    write_u8(0);
+    write_u8(typ);
+
+    // Data Length
+    if (data && len > 0)
     {
-        if (tud_cdc_n_available(PORT_CMD) > 0)
+        write_u8(len);
+        write(data, len);
+    }
+    else
+    {
+        write_u8(0);
+    }
+
+    // Checksum
+    write_u16(0);
+
+    tud_cdc_n_write_flush(PORT_CMD);
+}
+
+void send_empty_packet(uint8_t typ) { send_packet(typ, nullptr, 0); }
+
+static bool send_updates = false;
+
+void handle_packets()
+{
+    if (tud_cdc_n_available(PORT_CMD) > 0)
+    {
+        uint8_t b = read_u8();
+        if (b == PACKET_START)
         {
-            uint8_t b = read_u8();
-            if (b == PACKET_START)
+            Packet packet = parse_packet();
+
+            switch (packet.typ)
             {
-                Packet packet = parse_packet();
-                printf("Got Packet: 0x%x %d\n", packet.typ, packet.data_len);
-                for (int i = 0; i < packet.data_len; i++)
-                {
-                    if (i % 8 == 0)
-                        printf("\n");
-                    printf("0x%x ", data_buffer[i]);
+                case Packet_Ping: {
+                    uint8_t buf[] = {Ack_Pong};
+                    send_packet(Packet_Ack, buf, sizeof(buf));
                 }
-                printf("\n");
+                break;
+
+                case Packet_Set: {
+                    uint8_t var = read_u8_from_data();
+
+                    uint32_t value = read_u32_from_data();
+                    printf("Setting '%d' = 0x%x\n", var, value);
+
+                    uint8_t buf[] = {Ack_Success};
+                    send_packet(Packet_Ack, buf, sizeof(buf));
+                }
+                break;
+
+                case Packet_Get: {
+                    uint8_t var = read_u8_from_data();
+                    printf("Getting '%d'\n", var);
+
+                    uint32_t value = 0xffddeecc;
+
+                    uint8_t buf[5] = {Ack_Success};
+                    buf[1] = value & 0xff;
+                    buf[2] = value >> 8 & 0xff;
+                    buf[3] = value >> 16 & 0xff;
+                    buf[4] = value >> 24 & 0xff;
+
+                    send_packet(Packet_Ack, buf, sizeof(buf));
+                }
+                break;
+
+                case Packet_Configure: {
+                    send_updates = read_u8_from_data() > 0 ? true : false;
+
+                    uint8_t buf[] = {Ack_Success};
+                    send_packet(Packet_Ack, buf, sizeof(buf));
+                }
+                break;
+
+                default:
+                    uint8_t buf[] = {Ack_ErrorUnknownPacketType};
+                    send_packet(Packet_Ack, buf, sizeof(buf));
+                    printf("Error: Unknown Packet Type: 0x%x\n", packet.typ);
+                    break;
             }
         }
+    }
+}
+
+void send_update() {}
+
+void test_thread(void* ptr)
+{
+    while (1)
+    {
+        handle_packets();
+
+        if (send_updates)
+            send_update();
 
         vTaskDelay(1);
-    } while (1);
+    }
 }
 
 static TaskHandle_t usb_thread_handle;

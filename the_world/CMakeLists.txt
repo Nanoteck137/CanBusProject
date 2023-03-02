@@ -13,9 +13,12 @@ pico_sdk_init()
 
 add_executable(the_world
 	src/main.cpp
-	src/usb_descriptors.c)
+	src/usb_descriptors.c
+	../tusk/tusk.cpp
+	)
 
 target_include_directories(the_world PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src)
+target_include_directories(the_world PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../tusk)
 
 target_link_libraries(the_world PRIVATE
 	pico_stdlib
