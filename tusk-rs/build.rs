@@ -10,6 +10,8 @@ fn main() {
     let bindings = bindgen::Builder::default()
         .clang_args(["-x", "c++"])
         .header("wrapper.h")
+        // .rustified_enum("PacketType")
+        // .rustified_enum("ResponseCode")
         .generate()
         .expect("Failed to generate bindings");
 

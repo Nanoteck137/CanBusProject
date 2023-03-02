@@ -2,23 +2,23 @@ mod bind;
 
 pub use bind::PACKET_START;
 
-#[derive(Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum PacketType {
-    Set,
-    Get,
-    Configure,
+    Identify,
+    Command,
     Ping,
-    Ack,
+    Update,
+    Response,
 }
 
 impl PacketType {
     pub fn to_u8(&self) -> u8 {
         match self {
-            PacketType::Set => bind::PacketType_Packet_Set,
-            PacketType::Get => bind::PacketType_Packet_Get,
-            PacketType::Configure => bind::PacketType_Packet_Configure,
-            PacketType::Ping => bind::PacketType_Packet_Ping,
-            PacketType::Ack => bind::PacketType_Packet_Ack,
+            PacketType::Identify => bind::PacketType_PacketIdentify,
+            PacketType::Command => bind::PacketType_PacketCommand,
+            PacketType::Ping => bind::PacketType_PacketPing,
+            PacketType::Update => bind::PacketType_PacketUpdate,
+            PacketType::Response => bind::PacketType_PacketResponse,
         }
     }
 }
@@ -28,54 +28,31 @@ impl TryFrom<u8> for PacketType {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            bind::PacketType_Packet_Set => Ok(PacketType::Set),
-            bind::PacketType_Packet_Get => Ok(PacketType::Get),
-            bind::PacketType_Packet_Configure => Ok(PacketType::Configure),
-            bind::PacketType_Packet_Ping => Ok(PacketType::Ping),
-            bind::PacketType_Packet_Ack => Ok(PacketType::Ack),
+            bind::PacketType_PacketIdentify => Ok(PacketType::Identify),
+            bind::PacketType_PacketCommand => Ok(PacketType::Command),
+            bind::PacketType_PacketPing => Ok(PacketType::Ping),
+            bind::PacketType_PacketUpdate => Ok(PacketType::Update),
+            bind::PacketType_PacketResponse => Ok(PacketType::Response),
 
             _ => Err(()),
         }
     }
 }
 
-#[derive(Debug)]
-pub enum Ack {
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum ResponseCode {
     Success,
-    Pong,
-
-    ErrorUnknownVar,
-    ErrorMismatchedType,
-    ErrorUnknownPacketType,
+    Err,
 }
 
-impl Ack {
-    pub fn to_u8(&self) -> u8 {
-        match self {
-            Ack::Success => bind::Ack_Ack_Success,
-            Ack::Pong => bind::Ack_Ack_Pong,
-            Ack::ErrorUnknownVar => bind::Ack_Ack_ErrorUnknownVar,
-            Ack::ErrorMismatchedType => bind::Ack_Ack_ErrorMismatchedType,
-            Ack::ErrorUnknownPacketType => {
-                bind::Ack_Ack_ErrorUnknownPacketType
-            }
-        }
-    }
-}
-
-impl TryFrom<u8> for Ack {
+impl TryFrom<u8> for ResponseCode {
     type Error = ();
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            bind::Ack_Ack_Success => Ok(Ack::Success),
-            bind::Ack_Ack_Pong => Ok(Ack::Pong),
+            bind::ResponseCode_ResSuccess => Ok(ResponseCode::Success),
+            bind::ResponseCode_ResError => Ok(ResponseCode::Err),
 
-            bind::Ack_Ack_ErrorUnknownVar => Ok(Ack::ErrorUnknownVar),
-            bind::Ack_Ack_ErrorMismatchedType => Ok(Ack::ErrorMismatchedType),
-            bind::Ack_Ack_ErrorUnknownPacketType => {
-                Ok(Ack::ErrorUnknownPacketType)
-            }
             _ => Err(()),
         }
     }
