@@ -214,17 +214,20 @@ enum MCUType : uint8_t
     Mcu_TheWorldOverHeven,
 };
 
+#define MAKE_VERSION(major, minor, patch)                                      \
+    (((uint16_t)(major)) & 0x3f) << 10 | (((uint16_t)(minor)) & 0x3f) << 4 |   \
+        ((uint16_t)(patch)) & 0xf
+
+const uint16_t VERSION = MAKE_VERSION(0, 1, 0);
 static const char name[] = "DAAAAAAAAAAAAAAGHBBBBBBBBBBBBBBC";
 static_assert(sizeof(name) <= 33, "32 character limit on the name");
 
 void identify()
 {
-#define MAKE_VERSION(major, minor, patch)                                      \
-    (((uint16_t)(major)) & 0x3f) << 10 | (((uint16_t)(minor)) & 0x3f) << 4 |   \
-        ((uint16_t)(patch)) & 0xf
-
-    uint16_t version = MAKE_VERSION(1, 0, 1);
-    printf("Version: 0x%x\n", version);
+    // NOTE(patrik): Identify
+    // - Version (0.1) (2-bytes) (MAJOR MINOR PATCH)
+    // - Type (0x01) (The World over heaven) (1-byte)
+    // - Name (Main Control Unit) (32-bytes MAX)
 
     uint8_t buffer[2 + 1 + 32] = {0};
     // Version
@@ -234,22 +237,45 @@ void identify()
     //   - a: Major
     //   - b: Minor
     //   - c: Patch
-    buffer[0] = version & 0xff;
-    buffer[1] = (version >> 8) & 0xff;
+    buffer[0] = VERSION & 0xff;
+    buffer[1] = (VERSION >> 8) & 0xff;
 
     // Type
     buffer[2] = Mcu_TheWorldOverHeven;
 
+    // Name
     memcpy(buffer + 3, name, strlen(name));
 
-    // NOTE(patrik): Identify
-    // - Version (0.1) (2-bytes) (MAJOR MINOR PATCH)
-    // - Type (0x01) (The World over heaven) (1-byte)
-    // - Name (Main Control Unit) (32-bytes MAX)
-    // send_error(0xfe);
     send_success(buffer, sizeof(buffer));
 }
-void command() { send_error(0xfd); }
+
+void command()
+{
+    uint8_t cmd = read_u8_from_data();
+    switch (cmd)
+    {
+        case 0x00: {
+            uint8_t var = read_u8_from_data();
+            uint32_t value = read_u32_from_data();
+            printf("SET: Var 0x%x = 0x%x\n", var, value);
+            send_success(nullptr, 0);
+        }
+        break;
+        case 0x01: {
+            uint8_t var = read_u8_from_data();
+            printf("GET: Var 0x%x\n", var);
+            send_success(nullptr, 0);
+        }
+        break;
+        case 0x02: {
+            uint8_t send_updates = read_u8_from_data();
+            printf("CONFIGURE SU: %d\n", send_updates > 0 ? true : false);
+            send_success(nullptr, 0);
+        }
+        break;
+        default: send_error(0xfd); break;
+    }
+}
 void ping() { send_success(nullptr, 0); }
 void update() { send_error(0xff); };
 void response() { send_error(0xff); };
