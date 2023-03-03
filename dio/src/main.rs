@@ -293,6 +293,27 @@ fn run(port: &String, baudrate: u32) {
     send_empty_packet(&mut port, PacketType::Ping);
     let packet = wait_for_packet(&mut port);
     println!("Packet: {:?}", packet);
+
+    let mut data = Vec::new();
+    // SET
+    data.push(0x00);
+    // Var
+    data.push(0xff);
+    // Value
+    data.extend_from_slice(&0xaabbccddu32.to_le_bytes());
+    send_packet(&mut port, PacketType::Command, &data);
+    let packet = wait_for_packet(&mut port);
+    println!("Packet: {:?}", packet);
+
+    let data = [0x01, 0xff];
+    send_packet(&mut port, PacketType::Command, &data);
+    let packet = wait_for_packet(&mut port);
+    println!("Packet: {:?}", packet);
+
+    let data = [0x02, 0x01];
+    send_packet(&mut port, PacketType::Command, &data);
+    let packet = wait_for_packet(&mut port);
+    println!("Packet: {:?}", packet);
 }
 
 fn main() {
