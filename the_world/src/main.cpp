@@ -18,6 +18,8 @@
 #include "bsp/board.h"
 #include "tusb.h"
 
+#include "mcp2515/mcp2515.h"
+
 // TODO(patrik):
 //   - Import FreeRTOS
 //   - Packets:
@@ -26,6 +28,9 @@
 //      - Send back result
 //   - Can Bus
 //     - Get MCP2515 working
+
+// MCP2515 can0;
+MCP2515 can0(spi0, 5, 3, 4, 2);
 
 static uint8_t data_buffer[256];
 static size_t current_data_offset = 0;
@@ -50,6 +55,10 @@ void init_system()
 
     stdio_uart_init();
     stdio_set_driver_enabled(&debug_driver, true);
+
+    can0.reset();
+    can0.setBitrate(CAN_125KBPS, MCP_8MHZ);
+    can0.setNormalMode();
 }
 
 struct Packet
@@ -321,15 +330,37 @@ void test_thread(void* ptr)
     }
 }
 
+void can_bus_thread(void* ptr)
+{
+    while (true)
+    {
+        can_frame frame;
+        if (can0.readMessage(&frame) == MCP2515::ERROR_OK)
+        {
+            printf("New frame from ID: %10x\n", frame.can_id);
+            if (frame.can_id == 0x12)
+            {
+                can_frame send;
+                send.can_id = 0x123;
+                send.can_dlc = 0;
+                can0.sendMessage(&send);
+            }
+        }
+    }
+}
+
 static TaskHandle_t usb_thread_handle;
 static TaskHandle_t test_thread_handle;
+static TaskHandle_t can_bus_thread_handle;
 
 int main()
 {
     init_system();
 
     xTaskCreate(usb_thread, "USB Thread", configMINIMAL_STACK_SIZE, nullptr,
-                tskIDLE_PRIORITY + 2, &usb_thread_handle);
+                tskIDLE_PRIORITY + 3, &usb_thread_handle);
+    xTaskCreate(can_bus_thread, "Can Bus Thread", configMINIMAL_STACK_SIZE,
+                nullptr, tskIDLE_PRIORITY + 2, &can_bus_thread_handle);
     xTaskCreate(test_thread, "Test Thread", configMINIMAL_STACK_SIZE, nullptr,
                 tskIDLE_PRIORITY + 1, &test_thread_handle);
 
