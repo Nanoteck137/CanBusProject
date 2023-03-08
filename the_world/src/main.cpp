@@ -28,6 +28,7 @@
 //      - Send back result
 //   - Can Bus
 //     - Get MCP2515 working
+//   - Change the name of command_queue to command_buffer
 
 // MCP2515 can0;
 MCP2515 can0(spi0, 5, 3, 4, 2);
@@ -37,6 +38,46 @@ static size_t current_data_offset = 0;
 
 const uint8_t PORT_CMD = 0;
 const uint8_t PORT_DEBUG = 1;
+
+struct Device
+{
+    uint32_t id;
+};
+
+Device test_device = {
+    0x100,
+};
+
+enum CommandType
+{
+    Command_TurnOn,
+    Command_TurnOff,
+};
+
+struct Command
+{
+    CommandType type;
+
+    union
+    {
+        Device* device;
+    };
+};
+
+const size_t COMMAND_QUEUE_MAX_LENGTH = 8;
+Command command_queue[COMMAND_QUEUE_MAX_LENGTH];
+size_t command_queue_offset = 0;
+
+int push_command_queue(Command command)
+{
+    if (command_queue_offset >= COMMAND_QUEUE_MAX_LENGTH - 1)
+        return -1;
+
+    command_queue[command_queue_offset] = command;
+    command_queue_offset++;
+
+    return 0;
+}
 
 static void debug_driver_output(const char* buf, int length)
 {
@@ -133,7 +174,6 @@ uint16_t read_u16()
 
 void write(uint8_t* data, uint32_t len)
 {
-
     // TODO(patrik): Use this to check if the write buffer is full and
     // then flush it
     // uint32_t avail = tud_cdc_n_write_available(PORT_CMD);
@@ -266,6 +306,36 @@ void command()
         case 0x00: {
             uint8_t var = read_u8_from_data();
             uint32_t value = read_u32_from_data();
+
+            if (var == 0x10)
+            {
+                if (value > 0)
+                {
+                    Command command;
+                    command.type = Command_TurnOn;
+                    command.device = &test_device;
+                    if (push_command_queue(command) == 0)
+                    {
+                        printf("Pushing on into the Queue\n");
+                        uint8_t data[] = {ResSuccess};
+                        send_packet(PacketResponse, data, sizeof(data));
+                    }
+                    else
+                    {
+                        uint8_t data[] = {ResError, 0xfe};
+                        send_packet(PacketResponse, data, sizeof(data));
+                    }
+                }
+                else
+                {
+                    Command command;
+                    command.type = Command_TurnOff;
+                    command.device = &test_device;
+                    push_command_queue(command);
+                    printf("Pushing off into the Queue\n");
+                }
+            }
+
             printf("SET: Var 0x%x = 0x%x\n", var, value);
             send_success(nullptr, 0);
         }
@@ -332,20 +402,85 @@ void test_thread(void* ptr)
 
 void can_bus_thread(void* ptr)
 {
+    uint64_t last = time_us_64();
+    bool isOn = false;
+    // TODO(patrik): We need to read all the sensor data
+    // TODO(patrik): Then we store the data so we can retrive it later
+    // TODO(patrik): Then use the data to send updates
+
+    // NOTE(patrik):
+    // Device On the Can Bus Network
+    // Every devices gets 4 ids allocated to them
+    // ID Allocation:
+    //  id + 0x00 - Communication ID
+    //  id + 0x01 - Outputs (Control Relays)
+    //  id + 0x02 - Inputs (State of the inputs, Send to main unit)
+    //  id + 0x03 - Misc
+
     while (true)
     {
         can_frame frame;
         if (can0.readMessage(&frame) == MCP2515::ERROR_OK)
         {
-            printf("New frame from ID: %10x\n", frame.can_id);
-            if (frame.can_id == 0x12)
+            printf("New frame from ID: %10x\n", (uint32_t)frame.can_id);
+            if (frame.can_id == 0x102)
+            {
+                if (frame.can_dlc > 0)
+                {
+                    uint8_t inputs = frame.data[0];
+                    printf("Got Inputs: 0x%x\n", inputs);
+
+                    for (int i = 0; i < 8; i++)
+                    {
+                        bool input = (inputs & (1 << i)) > 0;
+                        if (input)
+                            printf("Input %d Active\n", i);
+                    }
+                }
+            }
+        }
+
+        for (int i = 0; i < command_queue_offset; i++)
+        {
+            Command* command = command_queue + i;
+            if (command->type == Command_TurnOn)
             {
                 can_frame send;
-                send.can_id = 0x123;
-                send.can_dlc = 0;
+                send.can_id = command->device->id + 0x01;
+                send.can_dlc = 1;
+                send.data[0] = 0x01;
+                can0.sendMessage(&send);
+            }
+
+            if (command->type == Command_TurnOff)
+            {
+                can_frame send;
+                send.can_id = command->device->id + 0x01;
+                send.can_dlc = 1;
+                send.data[0] = 0x00;
                 can0.sendMessage(&send);
             }
         }
+
+        command_queue_offset = 0;
+
+        // uint64_t current = time_us_64();
+        // if (current - last > 1000 * 1000)
+        // {
+        //     printf("Toggle\n");
+        //
+        //     can_frame send;
+        //     send.can_id = 0x101;
+        //     send.can_dlc = 1;
+        //     send.data[0] = isOn;
+        //     can0.sendMessage(&send);
+        //
+        //     isOn = !isOn;
+        //
+        //     last = current;
+        // }
+
+        vTaskDelay(1);
     }
 }
 
