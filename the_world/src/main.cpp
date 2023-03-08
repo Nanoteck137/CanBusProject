@@ -253,7 +253,7 @@ void send_error(uint8_t err)
 
 enum MCUType : uint8_t
 {
-    Mcu_TheWorldOverHeven,
+    Mcu_TheWorldOverHeaven,
 };
 
 #define MAKE_VERSION(major, minor, patch)                                      \
@@ -283,7 +283,7 @@ void identify()
     buffer[1] = (VERSION >> 8) & 0xff;
 
     // Type
-    buffer[2] = Mcu_TheWorldOverHeven;
+    buffer[2] = Mcu_TheWorldOverHeaven;
 
     // Name
     memcpy(buffer + 3, name, strlen(name));
