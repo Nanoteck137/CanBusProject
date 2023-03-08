@@ -21,13 +21,6 @@
 #include "mcp2515/mcp2515.h"
 
 // TODO(patrik):
-//   - Import FreeRTOS
-//   - Packets:
-//      - Parse Packets
-//      - Execute Packets
-//      - Send back result
-//   - Can Bus
-//     - Get MCP2515 working
 //   - Change the name of command_queue to command_buffer
 
 // MCP2515 can0;
