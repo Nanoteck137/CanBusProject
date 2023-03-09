@@ -29,7 +29,7 @@ void init_system()
 const uint32_t DEVICE_ID = 0x100;
 const uint32_t COM_ID = DEVICE_ID + 0x00;
 const uint32_t CONTROL_ID = DEVICE_ID + 0x01;
-const uint32_t STATUS_ID = DEVICE_ID + 0x02;
+const uint32_t LINE_ID = DEVICE_ID + 0x02;
 const uint32_t MISC_ID = DEVICE_ID + 0x03;
 
 int main()
@@ -47,6 +47,26 @@ int main()
         gpio_put(outputs[i], false);
     }
 
+    struct InputState
+    {
+        bool current_value = false;
+        bool current_toggle_value = false;
+        bool last_value = false;
+    };
+
+    const size_t NUM_INPUTS = 2;
+    uint inputs[NUM_INPUTS] = {14, 13};
+    InputState input_states[NUM_INPUTS];
+
+    for (int i = 0; i < NUM_INPUTS; i++)
+    {
+        gpio_init(inputs[i]);
+        gpio_set_dir(inputs[i], GPIO_IN);
+        gpio_set_pulls(inputs[i], true, false);
+    }
+
+    uint64_t last = time_us_64();
+
     while (true)
     {
         can_frame frame;
@@ -61,6 +81,42 @@ int main()
                 gpio_put(outputs[0], (controls & (1 << 0)) > 0);
                 gpio_put(outputs[1], (controls & (1 << 1)) > 0);
             }
+        }
+
+        for (int i = 0; i < NUM_INPUTS; i++)
+        {
+            InputState* state = input_states + i;
+            state->current_value = gpio_get(inputs[i]);
+            if (state->current_value == 0 &&
+                state->last_value != state->current_value)
+            {
+                state->current_toggle_value = !state->current_toggle_value;
+            }
+
+            state->last_value = state->current_value;
+        }
+
+        uint64_t current = time_us_64();
+        if (current - last > 150 * 1000)
+        {
+            uint8_t current_lines = 0;
+            uint8_t current_toggle_lines = 0;
+
+            for (int i = 0; i < NUM_INPUTS; i++)
+            {
+                InputState* state = input_states + i;
+                current_lines |= ((!state->current_value) << i);
+                current_toggle_lines |= (state->current_toggle_value << i);
+            }
+
+            printf("Sending Line Message\n");
+            can_frame send;
+            send.can_id = LINE_ID;
+            send.can_dlc = 2;
+            send.data[0] = current_lines;        // CURRENT VALUES
+            send.data[1] = current_toggle_lines; // TOGGLED VALUES
+            can0.sendMessage(&send);
+            last = current;
         }
     }
 }
