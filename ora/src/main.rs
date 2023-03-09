@@ -14,6 +14,7 @@ struct Args {
 enum Action {
     /// Compile firmware
     Firmware {},
+    TestFirmware {},
 }
 
 fn generate_cmake_project<P>(path: P, target: P)
@@ -72,6 +73,17 @@ fn main() {
             println!();
             println!("Running make");
             compile_with_make("build/the_world");
+            println!("---------------------------------------------");
+        }
+
+        Action::TestFirmware {} => {
+            println!("---------------------------------------------");
+            std::fs::create_dir_all("build/the_hand").unwrap();
+            println!("Running cmake");
+            generate_cmake_project("the_hand", "build/the_hand");
+            println!();
+            println!("Running make");
+            compile_with_make("build/the_hand");
             println!("---------------------------------------------");
         }
     }
