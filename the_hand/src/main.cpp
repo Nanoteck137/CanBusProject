@@ -36,7 +36,7 @@ int main()
 {
     init_system();
 
-    uint outputs[] = {15};
+    uint outputs[] = {15, PICO_DEFAULT_LED_PIN};
     int num_outputs = sizeof(outputs) / sizeof(outputs[0]);
 
     // Initialize the outputs
@@ -59,6 +59,7 @@ int main()
 
                 printf("Control: 0x%x\n", controls);
                 gpio_put(outputs[0], (controls & (1 << 0)) > 0);
+                gpio_put(outputs[1], (controls & (1 << 1)) > 0);
             }
         }
     }
