@@ -295,7 +295,15 @@ fn run(port: &String, baudrate: u32) {
     let mut data = Vec::new();
     data.push(0x00); // SET_DEVICE_CONTROLS
     data.push(0x00); // device
-    data.push(0b00000011);
+    data.push(0b00000001);
+    send_packet(&mut port, PacketType::Command, &data);
+
+    let packet = wait_for_packet(&mut port);
+    println!("Packet: {:?}", packet);
+
+    let mut data = Vec::new();
+    data.push(0x01); // GET_DEVICE_CONTROLS
+    data.push(0x00); // device
     send_packet(&mut port, PacketType::Command, &data);
 
     let packet = wait_for_packet(&mut port);
