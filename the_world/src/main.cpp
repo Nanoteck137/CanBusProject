@@ -24,7 +24,6 @@
 //   - Change the name of command_queue to command_buffer
 //   - Refactoring
 
-// MCP2515 can0;
 MCP2515 can0(spi0, 5, 3, 4, 2);
 
 static uint8_t data_buffer[256];
@@ -41,11 +40,10 @@ struct Device
 {
     uint32_t id;
 
-    bool controls[MAX_CONTROLS];
-    size_t num_controls;
+    bool need_update;
 
-    bool lines[MAX_LINES];
-    size_t num_lines;
+    uint8_t controls;
+    uint8_t lines;
 };
 
 const size_t NUM_DEVICES = 1;
@@ -62,36 +60,7 @@ Device init_device(uint32_t id)
 
 void init_devices() { devices[0] = init_device(0x100); }
 
-// enum CommandType
-// {
-//     Command_TurnOn,
-//     Command_TurnOff,
-// };
-//
-// struct Command
-// {
-//     CommandType type;
-//
-//     union
-//     {
-//         Device* device;
-//     };
-// };
-//
-// const size_t COMMAND_QUEUE_MAX_LENGTH = 8;
-// Command command_queue[COMMAND_QUEUE_MAX_LENGTH];
-// size_t command_queue_offset = 0;
-//
-// int push_command_queue(Command command)
-// {
-//     if (command_queue_offset >= COMMAND_QUEUE_MAX_LENGTH - 1)
-//         return -1;
-//
-//     command_queue[command_queue_offset] = command;
-//     command_queue_offset++;
-//
-//     return 0;
-// }
+uint32_t device_control_id(Device* device) { return device->id + 0x01; }
 
 static void debug_driver_output(const char* buf, int length)
 {
@@ -114,6 +83,8 @@ void init_system()
     can0.reset();
     can0.setBitrate(CAN_125KBPS, MCP_8MHZ);
     can0.setNormalMode();
+
+    init_devices();
 }
 
 struct Packet
@@ -312,26 +283,6 @@ void identify()
     send_success(buffer, sizeof(buffer));
 }
 
-// void push_device_update(Device* device, bool value)
-// {
-//     Command command;
-//     command.type = value ? Command_TurnOn : Command_TurnOff;
-//     command.device = device;
-//
-//     if (push_command_queue(command) == 0)
-//     {
-//         // TODO(patrik): Change error code
-//         uint8_t data[] = {ResSuccess};
-//         send_packet(PacketResponse, data, sizeof(data));
-//     }
-//     else
-//     {
-//         // TODO(patrik): Change error code
-//         uint8_t data[] = {ResError, 0xfe};
-//         send_packet(PacketResponse, data, sizeof(data));
-//     }
-// }
-
 void command_set(uint8_t var, uint32_t value)
 {
     // Devices:
@@ -366,13 +317,19 @@ void command()
     switch (cmd)
     {
         case 0x00: {
-            // SET_DEVICE
-            uint8_t var = read_u8_from_data();
-            // uint8_t device = read_u8_from_data();
-            uint32_t value = read_u32_from_data();
-            command_set(var, value);
+            // SET_DEVICE_CONTROLS 0 0xff
+            uint8_t device = read_u8_from_data();
+            uint8_t controls = read_u32_from_data();
+            static_assert(MAX_CONTROLS <= sizeof(controls) * 8,
+                          "Max 8 controls for now");
 
-            printf("SET: Var 0x%x = 0x%x\n", var, value);
+            Device* device_ptr = &devices[0];
+            device_ptr->controls = controls;
+            device_ptr->need_update = true;
+
+            printf("SET_DEVICE_CONTROLS: 0x%x = 0x%x\n", device, controls);
+
+            send_success(nullptr, 0);
         }
         break;
         case 0x01: {
@@ -475,45 +432,22 @@ void can_bus_thread(void* ptr)
             }
         }
 
-        // for (int i = 0; i < command_queue_offset; i++)
-        // {
-        //     Command* command = command_queue + i;
-        //     if (command->type == Command_TurnOn)
-        //     {
-        //         can_frame send;
-        //         send.can_id = command->device->id + 0x01;
-        //         send.can_dlc = 1;
-        //         send.data[0] = 0x01;
-        //         can0.sendMessage(&send);
-        //     }
-        //
-        //     if (command->type == Command_TurnOff)
-        //     {
-        //         can_frame send;
-        //         send.can_id = command->device->id + 0x01;
-        //         send.can_dlc = 1;
-        //         send.data[0] = 0x00;
-        //         can0.sendMessage(&send);
-        //     }
-        // }
-        //
-        // command_queue_offset = 0;
+        for (int i = 0; i < NUM_DEVICES; i++)
+        {
+            Device* device = devices + i;
+            if (device->need_update)
+            {
+                printf("Sending Update for device: %d\n", i);
 
-        // uint64_t current = time_us_64();
-        // if (current - last > 1000 * 1000)
-        // {
-        //     printf("Toggle\n");
-        //
-        //     can_frame send;
-        //     send.can_id = 0x101;
-        //     send.can_dlc = 1;
-        //     send.data[0] = isOn;
-        //     can0.sendMessage(&send);
-        //
-        //     isOn = !isOn;
-        //
-        //     last = current;
-        // }
+                can_frame send;
+                send.can_id = device_control_id(device);
+                send.can_dlc = 1;
+                send.data[0] = device->controls;
+                can0.sendMessage(&send);
+
+                device->need_update = false;
+            }
+        }
 
         vTaskDelay(1);
     }
