@@ -317,25 +317,48 @@ void command()
     switch (cmd)
     {
         case 0x00: {
-            // SET_DEVICE_CONTROLS 0 0xff
-            uint8_t device = read_u8_from_data();
-            uint8_t controls = read_u32_from_data();
+            // SET_DEVICE_CONTROLS
+            uint8_t device_index = read_u8_from_data();
+            uint8_t controls = read_u8_from_data();
             static_assert(MAX_CONTROLS <= sizeof(controls) * 8,
                           "Max 8 controls for now");
 
-            Device* device_ptr = &devices[0];
-            device_ptr->controls = controls;
-            device_ptr->need_update = true;
+            if (device_index >= NUM_DEVICES)
+            {
+                uint8_t data[] = {ResError, 0xb0};
+                send_packet(PacketResponse, data, sizeof(data));
 
-            printf("SET_DEVICE_CONTROLS: 0x%x = 0x%x\n", device, controls);
+                return;
+            }
+
+            Device* device = &devices[device_index];
+            device->controls = controls;
+            device->need_update = true;
+
+            printf("SET_DEVICE_CONTROLS: 0x%x = 0x%x\n", device_index,
+                   controls);
 
             send_success(nullptr, 0);
         }
         break;
         case 0x01: {
-            uint8_t var = read_u8_from_data();
-            printf("GET: Var 0x%x\n", var);
-            send_success(nullptr, 0);
+            // GET_DEVICE_CONTROLS
+            uint8_t device_index = read_u8_from_data();
+
+            if (device_index >= NUM_DEVICES)
+            {
+                uint8_t data[] = {ResError, 0xb0};
+                send_packet(PacketResponse, data, sizeof(data));
+
+                return;
+            }
+
+            Device* device = devices + device_index;
+            uint8_t controls = device->controls;
+
+            printf("GET_DEVICE_CONTROLS: 0x%x\n", device_index);
+            uint8_t data[] = {controls};
+            send_success(data, sizeof(data));
         }
         break;
         case 0x02: {
