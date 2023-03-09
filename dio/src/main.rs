@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::io::{BufRead, Write};
 use std::sync::atomic::AtomicU8;
 use std::time::Duration;
 
@@ -286,10 +286,16 @@ fn run(port: &String, baudrate: u32) {
         .open()
         .unwrap();
 
+    // let stdin = std::io::stdin();
+    // let mut lock = stdin.lock();
+    // let mut s = String::new();
+    // lock.read_line(&mut s).unwrap();
+    // let s = s.trim();
+
     let mut data = Vec::new();
-    data.push(0x00); // SET
-    data.push(0x10); // var
-    data.extend_from_slice(&0x00u32.to_le_bytes());
+    data.push(0x00); // SET_DEVICE_CONTROLS
+    data.push(0x00); // device
+    data.push(0b00000011);
     send_packet(&mut port, PacketType::Command, &data);
 
     let packet = wait_for_packet(&mut port);
