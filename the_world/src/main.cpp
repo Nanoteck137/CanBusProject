@@ -61,6 +61,7 @@ Device init_device(uint32_t id)
 void init_devices() { devices[0] = init_device(0x100); }
 
 uint32_t device_control_id(Device* device) { return device->id + 0x01; }
+uint32_t device_line_id(Device* device) { return device->id + 0x02; }
 
 static void debug_driver_output(const char* buf, int length)
 {
@@ -317,6 +318,14 @@ void command()
     switch (cmd)
     {
         case 0x00: {
+            // CONFIGURE
+            uint8_t send_updates = read_u8_from_data();
+            printf("CONFIGURE SU: %d\n", send_updates > 0 ? true : false);
+            send_success(nullptr, 0);
+        }
+        break;
+
+        case 0x01: {
             // SET_DEVICE_CONTROLS
             uint8_t device_index = read_u8_from_data();
             uint8_t controls = read_u8_from_data();
@@ -325,9 +334,7 @@ void command()
 
             if (device_index >= NUM_DEVICES)
             {
-                uint8_t data[] = {ResError, 0xb0};
-                send_packet(PacketResponse, data, sizeof(data));
-
+                send_error(0xb0);
                 return;
             }
 
@@ -341,15 +348,14 @@ void command()
             send_success(nullptr, 0);
         }
         break;
-        case 0x01: {
+
+        case 0x02: {
             // GET_DEVICE_CONTROLS
             uint8_t device_index = read_u8_from_data();
 
             if (device_index >= NUM_DEVICES)
             {
-                uint8_t data[] = {ResError, 0xb0};
-                send_packet(PacketResponse, data, sizeof(data));
-
+                send_error(0xb0);
                 return;
             }
 
@@ -361,12 +367,27 @@ void command()
             send_success(data, sizeof(data));
         }
         break;
-        case 0x02: {
-            uint8_t send_updates = read_u8_from_data();
-            printf("CONFIGURE SU: %d\n", send_updates > 0 ? true : false);
-            send_success(nullptr, 0);
+
+        case 0x03: {
+            // GET_DEVICE_LINES
+
+            uint8_t device_index = read_u8_from_data();
+
+            if (device_index >= NUM_DEVICES)
+            {
+                send_error(0xb0);
+                return;
+            }
+
+            Device* device = devices + device_index;
+            uint8_t lines = device->lines;
+
+            printf("GET_DEVICE_LINES: 0x%x\n", device_index);
+            uint8_t data[] = {lines};
+            send_success(data, sizeof(data));
         }
         break;
+
         default: send_error(0xfd); break;
     }
 }
@@ -417,8 +438,6 @@ void test_thread(void* ptr)
 
 void can_bus_thread(void* ptr)
 {
-    uint64_t last = time_us_64();
-    bool isOn = false;
     // TODO(patrik): We need to read all the sensor data
     // TODO(patrik): Then we store the data so we can retrive it later
     // TODO(patrik): Then use the data to send updates
@@ -437,19 +456,18 @@ void can_bus_thread(void* ptr)
         can_frame frame;
         if (can0.readMessage(&frame) == MCP2515::ERROR_OK)
         {
-            printf("New frame from ID: %10x\n", (uint32_t)frame.can_id);
-            if (frame.can_id == 0x102)
+            for (int i = 0; i < NUM_DEVICES; i++)
             {
-                if (frame.can_dlc > 0)
+                Device* device = devices + i;
+                if (frame.can_id == device_line_id(device))
                 {
-                    uint8_t inputs = frame.data[0];
-                    printf("Got Inputs: 0x%x\n", inputs);
-
-                    for (int i = 0; i < 8; i++)
+                    if (frame.can_dlc == 2)
                     {
-                        bool input = (inputs & (1 << i)) > 0;
-                        if (input)
-                            printf("Input %d Active\n", i);
+                        uint8_t current_lines = frame.data[0];
+                        uint8_t toggle_lines = frame.data[1];
+                        device->lines = toggle_lines;
+                        printf("Lines: 0x%x 0x%x\n", current_lines,
+                               toggle_lines);
                     }
                 }
             }
@@ -460,8 +478,6 @@ void can_bus_thread(void* ptr)
             Device* device = devices + i;
             if (device->need_update)
             {
-                printf("Sending Update for device: %d\n", i);
-
                 can_frame send;
                 send.can_id = device_control_id(device);
                 send.can_dlc = 1;
