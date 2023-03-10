@@ -44,24 +44,18 @@ struct Device
 
     uint8_t controls;
     uint8_t lines;
+
+    void init(uint32_t id) { this->id = id; }
+
+    uint32_t control_id() { return this->id + 0x01; }
+    uint32_t line_id() { return this->id + 0x02; }
 };
 
 const size_t NUM_DEVICES = 1;
 static_assert(NUM_DEVICES <= MAX_DEVICES, "Too many devices");
 static Device devices[NUM_DEVICES];
 
-Device init_device(uint32_t id)
-{
-    Device device;
-    device.id = id;
-
-    return device;
-}
-
-void init_devices() { devices[0] = init_device(0x100); }
-
-uint32_t device_control_id(Device* device) { return device->id + 0x01; }
-uint32_t device_line_id(Device* device) { return device->id + 0x02; }
+void init_devices() { devices[0].init(0x100); }
 
 static void debug_driver_output(const char* buf, int length)
 {
@@ -459,7 +453,7 @@ void can_bus_thread(void* ptr)
             for (int i = 0; i < NUM_DEVICES; i++)
             {
                 Device* device = devices + i;
-                if (frame.can_id == device_line_id(device))
+                if (frame.can_id == device->line_id())
                 {
                     if (frame.can_dlc == 2)
                     {
@@ -479,7 +473,7 @@ void can_bus_thread(void* ptr)
             if (device->need_update)
             {
                 can_frame send;
-                send.can_id = device_control_id(device);
+                send.can_id = device->control_id();
                 send.can_dlc = 1;
                 send.data[0] = device->controls;
                 can0.sendMessage(&send);
