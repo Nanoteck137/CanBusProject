@@ -52,6 +52,7 @@ int main()
         bool current_value = false;
         bool current_toggle_value = false;
         bool last_value = false;
+        uint64_t test = 0;
     };
 
     const size_t NUM_INPUTS = 2;
@@ -66,9 +67,12 @@ int main()
     }
 
     uint64_t last = time_us_64();
+    uint64_t test = time_us_64();
 
     while (true)
     {
+        uint64_t current = time_us_64();
+
         can_frame frame;
         if (can0.readMessage(&frame) == MCP2515::ERROR_OK)
         {
@@ -88,16 +92,18 @@ int main()
             InputState* state = input_states + i;
             state->current_value = gpio_get(inputs[i]);
             if (state->current_value == 0 &&
-                state->last_value != state->current_value)
+                state->last_value != state->current_value &&
+                (current - state->test) > 200 * 1000)
             {
                 state->current_toggle_value = !state->current_toggle_value;
+                printf("Toggle %d\n", state->current_toggle_value);
+                state->test = current;
             }
 
             state->last_value = state->current_value;
         }
 
-        uint64_t current = time_us_64();
-        if (current - last > 150 * 1000)
+        if (current - last > 50 * 1000)
         {
             uint8_t current_lines = 0;
             uint8_t current_toggle_lines = 0;
@@ -109,7 +115,7 @@ int main()
                 current_toggle_lines |= (state->current_toggle_value << i);
             }
 
-            printf("Sending Line Message\n");
+            // printf("Sending Line Message\n");
             can_frame send;
             send.can_id = LINE_ID;
             send.can_dlc = 2;
