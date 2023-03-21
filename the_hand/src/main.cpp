@@ -36,7 +36,7 @@ int main()
 {
     init_system();
 
-    uint outputs[] = {15, PICO_DEFAULT_LED_PIN};
+    uint outputs[] = {18, 19, 20, PICO_DEFAULT_LED_PIN};
     int num_outputs = sizeof(outputs) / sizeof(outputs[0]);
 
     // Initialize the outputs
@@ -52,7 +52,7 @@ int main()
         bool current_value = false;
         bool current_toggle_value = false;
         bool last_value = false;
-        uint64_t test = 0;
+        uint64_t time = 0;
     };
 
     const size_t NUM_INPUTS = 2;
@@ -67,7 +67,6 @@ int main()
     }
 
     uint64_t last = time_us_64();
-    uint64_t test = time_us_64();
 
     while (true)
     {
@@ -76,14 +75,14 @@ int main()
         can_frame frame;
         if (can0.readMessage(&frame) == MCP2515::ERROR_OK)
         {
-            printf("Got frame\n");
             if (frame.can_id == CONTROL_ID && frame.can_dlc >= 1)
             {
                 uint8_t controls = frame.data[0];
 
-                printf("Control: 0x%x\n", controls);
                 gpio_put(outputs[0], (controls & (1 << 0)) > 0);
                 gpio_put(outputs[1], (controls & (1 << 1)) > 0);
+                gpio_put(outputs[2], (controls & (1 << 2)) > 0);
+                gpio_put(outputs[3], (controls & (1 << 3)) > 0);
             }
         }
 
@@ -93,11 +92,10 @@ int main()
             state->current_value = gpio_get(inputs[i]);
             if (state->current_value == 0 &&
                 state->last_value != state->current_value &&
-                (current - state->test) > 200 * 1000)
+                (current - state->time) > 200 * 1000)
             {
                 state->current_toggle_value = !state->current_toggle_value;
-                printf("Toggle %d\n", state->current_toggle_value);
-                state->test = current;
+                state->time = current;
             }
 
             state->last_value = state->current_value;
@@ -121,7 +119,10 @@ int main()
             send.can_dlc = 2;
             send.data[0] = current_lines;        // CURRENT VALUES
             send.data[1] = current_toggle_lines; // TOGGLED VALUES
-            can0.sendMessage(&send);
+            if (can0.sendMessage(&send) != MCP2515::ERROR_OK)
+            {
+                printf("Error?\n");
+            }
             last = current;
         }
     }
