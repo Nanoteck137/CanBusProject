@@ -44,6 +44,7 @@ struct Device
 
     uint8_t controls;
     uint8_t lines;
+    uint8_t toggled_lines;
 
     void init(uint32_t id) { this->id = id; }
 
@@ -417,7 +418,7 @@ void handle_packets()
 
 void send_update() {}
 
-void test_thread(void* ptr)
+void com_thread(void* ptr)
 {
     while (1)
     {
@@ -453,16 +454,13 @@ void can_bus_thread(void* ptr)
             for (int i = 0; i < NUM_DEVICES; i++)
             {
                 Device* device = devices + i;
-                if (frame.can_id == device->line_id())
+                if (frame.can_id == device->line_id() && frame.can_dlc == 2)
                 {
-                    if (frame.can_dlc == 2)
-                    {
-                        uint8_t current_lines = frame.data[0];
-                        uint8_t toggle_lines = frame.data[1];
-                        device->lines = toggle_lines;
-                        printf("Lines: 0x%x 0x%x\n", current_lines,
-                               toggle_lines);
-                    }
+                    uint8_t lines = frame.data[0];
+                    uint8_t toggled_lines = frame.data[1];
+                    device->lines = lines;
+                    device->toggled_lines = toggled_lines;
+                    printf("Wot: %d %d\n", lines, toggled_lines);
                 }
             }
         }
@@ -486,8 +484,36 @@ void can_bus_thread(void* ptr)
     }
 }
 
+void test_thread(void* ptr)
+{
+    Device* device = devices + 0;
+    bool last = (device->toggled_lines & 0x1) > 0;
+    while (true)
+    {
+        bool current = (device->toggled_lines & 0x1) > 0;
+
+        if (current && last != current)
+        {
+            printf("On\n");
+            device->controls = 0b1;
+            device->need_update = true;
+        }
+
+        if (!current && last != current)
+        {
+            printf("Off\n");
+            device->controls = 0b0;
+            device->need_update = true;
+        }
+
+        last = current;
+
+        vTaskDelay(1);
+    }
+}
+
 static TaskHandle_t usb_thread_handle;
-static TaskHandle_t test_thread_handle;
+static TaskHandle_t com_thread_handle;
 static TaskHandle_t can_bus_thread_handle;
 
 int main()
@@ -495,11 +521,13 @@ int main()
     init_system();
 
     xTaskCreate(usb_thread, "USB Thread", configMINIMAL_STACK_SIZE, nullptr,
-                tskIDLE_PRIORITY + 3, &usb_thread_handle);
+                tskIDLE_PRIORITY + 4, &usb_thread_handle);
     xTaskCreate(can_bus_thread, "Can Bus Thread", configMINIMAL_STACK_SIZE,
-                nullptr, tskIDLE_PRIORITY + 2, &can_bus_thread_handle);
+                nullptr, tskIDLE_PRIORITY + 3, &can_bus_thread_handle);
     xTaskCreate(test_thread, "Test Thread", configMINIMAL_STACK_SIZE, nullptr,
-                tskIDLE_PRIORITY + 1, &test_thread_handle);
+                tskIDLE_PRIORITY + 2, &can_bus_thread_handle);
+    xTaskCreate(com_thread, "COM Thread", configMINIMAL_STACK_SIZE, nullptr,
+                tskIDLE_PRIORITY + 1, &com_thread_handle);
 
     vTaskStartScheduler();
 }
