@@ -83,7 +83,6 @@ impl TuskEncoder {
             )
         };
 
-        println!("Length: {}", len);
         buffer.truncate(len);
 
         buffer

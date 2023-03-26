@@ -8,6 +8,68 @@ use tusk_rs::{PacketType, PACKET_START};
 
 static PID: AtomicU8 = AtomicU8::new(1);
 
+#[derive(Debug)]
+enum Command {
+    Identify,
+    SetDeviceControls { device: u8, controls: u8 },
+    GetDeviceControls { device: u8 },
+    GetDeviceLines { device: u8 },
+}
+
+fn parse_u8(s: &str) -> Option<u8> {
+    if s.len() >= 2 {
+        if &s[0..2] == "0b" {
+            Some(u8::from_str_radix(&s[2..], 2).ok()?)
+        } else if &s[0..2] == "0x" {
+            Some(u8::from_str_radix(&s[2..], 16).ok()?)
+        } else {
+            Some(u8::from_str_radix(s, 10).ok()?)
+        }
+    } else {
+        Some(u8::from_str_radix(s, 10).ok()?)
+    }
+}
+
+fn parse_cmd(cmd: &str) -> Option<Command> {
+    let mut split = cmd.split(' ');
+
+    let cmd = split.next()?;
+    println!("Cmd: {}", cmd);
+
+    match cmd {
+        "identify" => Some(Command::Identify),
+
+        "set_device_controls" => {
+            // set_device_controls 0 0b00000000
+            let device = split.next()?;
+            let device = parse_u8(device)?;
+
+            let controls = split.next()?;
+            let controls = parse_u8(controls)?;
+
+            Some(Command::SetDeviceControls { device, controls })
+        }
+
+        "get_device_controls" => {
+            // get_device_controls 0
+            let device = split.next()?;
+            let device = parse_u8(device)?;
+
+            Some(Command::GetDeviceControls { device })
+        }
+
+        "get_device_lines" => {
+            // get_device_lines 0
+            let device = split.next()?;
+            let device = parse_u8(device)?;
+
+            Some(Command::GetDeviceLines { device })
+        }
+
+        _ => None,
+    }
+}
+
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -292,30 +354,72 @@ fn run(port: &String, baudrate: u32) {
     // lock.read_line(&mut s).unwrap();
     // let s = s.trim();
 
-    let mut data = Vec::new();
-    data.push(0x01); // SET_DEVICE_CONTROLS
-    data.push(0x00); // device
-    data.push(0b000001111);
-    send_packet(&mut port, PacketType::Command, &data);
+    // let mut data = Vec::new();
+    // data.push(0x01); // SET_DEVICE_CONTROLS
+    // data.push(0x00); // device
+    // data.push(0b000001111);
+    // send_packet(&mut port, PacketType::Command, &data);
+    //
+    // let packet = wait_for_packet(&mut port);
+    // println!("Packet: {:?}", packet);
+    //
+    // let mut data = Vec::new();
+    // data.push(0x02); // GET_DEVICE_CONTROLS
+    // data.push(0x00); // device
+    // send_packet(&mut port, PacketType::Command, &data);
+    //
+    // let packet = wait_for_packet(&mut port);
+    // println!("Packet: {:?}", packet);
+    //
+    // let mut data = Vec::new();
+    // data.push(0x03); // GET_DEVICE_LINES
+    // data.push(0x00); // device
+    // send_packet(&mut port, PacketType::Command, &data);
+    //
+    // let packet = wait_for_packet(&mut port);
+    // println!("Packet: {:?}", packet);
 
-    let packet = wait_for_packet(&mut port);
-    println!("Packet: {:?}", packet);
+    let cmd = "identify";
+    let cmd = parse_cmd(cmd).unwrap();
+    match cmd {
+        Command::Identify => {
+            send_empty_packet(&mut port, PacketType::Identify);
+            let packet = wait_for_packet(&mut port);
+            let identity = Identify::parse(&packet.data);
+            println!("Identity: {:?}", identity);
+        }
 
-    let mut data = Vec::new();
-    data.push(0x02); // GET_DEVICE_CONTROLS
-    data.push(0x00); // device
-    send_packet(&mut port, PacketType::Command, &data);
+        Command::SetDeviceControls { device, controls } => {
+            let mut data = Vec::new();
+            data.push(0x01); // SET_DEVICE_CONTROLS
+            data.push(device); // device
+            data.push(controls);
+            send_packet(&mut port, PacketType::Command, &data);
 
-    let packet = wait_for_packet(&mut port);
-    println!("Packet: {:?}", packet);
+            let packet = wait_for_packet(&mut port);
+            println!("Packet: {:?}", packet);
+        }
 
-    let mut data = Vec::new();
-    data.push(0x03); // GET_DEVICE_LINES
-    data.push(0x00); // device
-    send_packet(&mut port, PacketType::Command, &data);
+        Command::GetDeviceControls { device } => {
+            let mut data = Vec::new();
+            data.push(0x02); // GET_DEVICE_CONTROLS
+            data.push(device); // device
+            send_packet(&mut port, PacketType::Command, &data);
 
-    let packet = wait_for_packet(&mut port);
-    println!("Packet: {:?}", packet);
+            let packet = wait_for_packet(&mut port);
+            println!("Packet: {:?}", packet);
+        }
+
+        Command::GetDeviceLines { device } => {
+            let mut data = Vec::new();
+            data.push(0x03); // GET_DEVICE_LINES
+            data.push(device); // device
+            send_packet(&mut port, PacketType::Command, &data);
+
+            let packet = wait_for_packet(&mut port);
+            println!("Packet: {:?}", packet);
+        }
+    }
 }
 
 fn main() {
@@ -334,56 +438,4 @@ fn main() {
         Action::Debug { port, baudrate } => run_debug_monitor(&port, baudrate),
         Action::Run { port, baudrate } => run(&port, baudrate),
     }
-
-    // // TODO(patrik): Override the baud rate
-    // let mut port = serialport::new(port.port_name.clone(), 115200)
-    //     .timeout(Duration::from_millis(5000))
-    //     .open()
-    //     .unwrap();
-    //
-    // let mut last = Instant::now();
-    //
-    // let connection;
-    // send_empty_packet(&mut port, SYN);
-    // loop {
-    //     if last.elapsed().as_millis() > 2000 {
-    //         println!("Resend SYN");
-    //         send_empty_packet(&mut port, SYN);
-    //         last = Instant::now();
-    //     }
-    //
-    //     let mut buf = [0; 1];
-    //     if let Ok(_) = port.read_exact(&mut buf) {
-    //         if buf[0] == PACKET_START {
-    //             let packet = parse_packet(&mut port);
-    //             if packet.typ == SYN_ACK {
-    //                 println!("Got SYN-ACK send ACK");
-    //                 send_empty_packet(&mut port, ACK);
-    //                 connection = true;
-    //                 break;
-    //             }
-    //         }
-    //     }
-    // }
-    //
-    // if connection {
-    //     println!("Got connection");
-    //
-    //     loop {
-    //         let mut buf = [0; 1];
-    //         if let Ok(_) = port.read_exact(&mut buf) {
-    //             if buf[0] == PACKET_START {
-    //                 let packet = parse_packet(&mut port);
-    //                 if packet.typ == PING {
-    //                     println!("Got ping");
-    //                     send_empty_packet(&mut port, PONG);
-    //                 }
-    //
-    //                 if packet.typ == UPDATE {
-    //                     println!("UPDATE: {:?}", packet);
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
 }
