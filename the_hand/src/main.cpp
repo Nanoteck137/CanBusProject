@@ -5,7 +5,7 @@
 #include <string.h>
 
 #include "pico/stdio.h"
-#include "tusk.h"
+// #include "tusk.h"
 
 #include "hardware/gpio.h"
 #include "hardware/timer.h"

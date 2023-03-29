@@ -11,8 +11,7 @@ pico_sdk_init()
 add_executable(the_hand
 	src/main.cpp
 
-	../tusk/tusk.cpp
-	../pico-mcp2515/include/mcp2515/mcp2515.cpp
+	../third_party/pico-mcp2515/include/mcp2515/mcp2515.cpp
 	)
 
 pico_enable_stdio_usb(the_hand 1)
@@ -20,7 +19,7 @@ pico_enable_stdio_uart(the_hand 1)
 
 target_include_directories(the_hand PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src)
 target_include_directories(the_hand PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../tusk)
-target_include_directories(the_hand PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../pico-mcp2515/include)
+target_include_directories(the_hand PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../third_party/pico-mcp2515/include)
 
 target_link_libraries(the_hand PRIVATE
 	pico_stdlib
