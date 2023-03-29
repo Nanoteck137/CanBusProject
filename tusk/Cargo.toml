@@ -1,13 +1,10 @@
 [package]
-name = "dio"
+name = "tusk"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "4.1.7", features = ["derive"] }
+enum-primitive-derive = "0.2.2"
 num-traits = "0.2.15"
-serial2 = "0.1.7"
-serialport = "4.2.0"
-tusk = { version = "0.1.0", path = "../tusk" }

@@ -1,10 +1,11 @@
-use std::io::{BufRead, Write};
+use std::io::Write;
 use std::sync::atomic::AtomicU8;
 use std::time::Duration;
 
 use clap::{Parser, Subcommand};
+use num_traits::ToPrimitive;
 use serialport::{SerialPortInfo, SerialPortType};
-use tusk_rs::{PacketType, PACKET_START};
+use tusk::{JotaroCommands, PacketType, PACKET_START};
 
 static PID: AtomicU8 = AtomicU8::new(1);
 
@@ -178,13 +179,14 @@ fn send_packet(
 
     buf.push(PACKET_START);
     buf.push(pid);
-    buf.push(typ.to_u8());
+    buf.push(typ.to_u8().unwrap());
 
     // assert!(data.len() < 28);
     buf.push(data.len() as u8);
     buf.extend_from_slice(data);
 
-    let checksum = tusk_rs::checksum(&buf[1..]);
+    // let checksum = tusk_rs::checksum(&buf[1..]);
+    let checksum = 0u16;
     buf.extend_from_slice(&checksum.to_le_bytes());
 
     match port.write(&buf) {
@@ -391,7 +393,7 @@ fn run(port: &String, baudrate: u32) {
 
         Command::SetDeviceControls { device, controls } => {
             let mut data = Vec::new();
-            data.push(0x01); // SET_DEVICE_CONTROLS
+            data.push(JotaroCommands::SetDeviceControls.to_u8().unwrap());
             data.push(device); // device
             data.push(controls);
             send_packet(&mut port, PacketType::Command, &data);
@@ -402,7 +404,7 @@ fn run(port: &String, baudrate: u32) {
 
         Command::GetDeviceControls { device } => {
             let mut data = Vec::new();
-            data.push(0x02); // GET_DEVICE_CONTROLS
+            data.push(JotaroCommands::GetDeviceControls.to_u8().unwrap());
             data.push(device); // device
             send_packet(&mut port, PacketType::Command, &data);
 
@@ -412,7 +414,7 @@ fn run(port: &String, baudrate: u32) {
 
         Command::GetDeviceLines { device } => {
             let mut data = Vec::new();
-            data.push(0x03); // GET_DEVICE_LINES
+            data.push(JotaroCommands::GetDeviceLines.to_u8().unwrap());
             data.push(device); // device
             send_packet(&mut port, PacketType::Command, &data);
 
