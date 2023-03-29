@@ -32,31 +32,70 @@ static size_t current_data_offset = 0;
 const uint8_t PORT_CMD = 0;
 const uint8_t PORT_DEBUG = 1;
 
-#define MAX_DEVICES 16
-#define MAX_CONTROLS 8
-#define MAX_LINES 8
+const size_t NUM_DEVICES = 1;
 
 struct Device
 {
-    uint32_t id;
-
-    bool need_update;
-
-    uint8_t controls;
-    uint8_t lines;
-    uint8_t toggled_lines;
-
-    void init(uint32_t id) { this->id = id; }
-
-    uint32_t control_id() { return this->id + 0x01; }
-    uint32_t line_id() { return this->id + 0x02; }
+    uint32_t index;
+    uint32_t can_id;
 };
 
-const size_t NUM_DEVICES = 1;
-static_assert(NUM_DEVICES <= MAX_DEVICES, "Too many devices");
-static Device devices[NUM_DEVICES];
+struct DeviceData
+{
+    Device device;
 
-void init_devices() { devices[0].init(0x100); }
+    // uint8_t controls;
+    // uint8_t lines;
+    // uint8_t toggled_lines;
+
+    uint32_t control_id() { return device.can_id + 0x01; }
+    uint32_t line_id() { return device.can_id + 0x02; }
+};
+
+struct Config
+{
+    const char* name;
+    DeviceType type;
+
+    uint32_t can_id;
+    bool has_can;
+
+    Device devices[MAX_DEVICES];
+
+    size_t num_inputs;
+    uint inputs[MAX_IO];
+
+    size_t num_outputs;
+    uint outputs[MAX_IO];
+};
+
+const Config config = {
+    .name = "RSNav",
+    .type = DeviceType::StarPlatinum,
+
+    .can_id = 0x000,
+    .has_can = false,
+
+    .devices =
+        {
+            {
+                .index = 0,
+                .can_id = 0x100,
+            },
+        },
+
+    .num_inputs = 0,
+    .inputs = {},
+
+    .num_outputs = 0,
+    .outputs = {},
+};
+
+const DeviceData device_data[MAX_DEVICES] = {};
+
+// const size_t NUM_DEVICES = 1;
+// static_assert(NUM_DEVICES <= MAX_DEVICES, "Too many devices");
+// static Device devices[NUM_DEVICES];
 
 static void debug_driver_output(const char* buf, int length)
 {
@@ -80,7 +119,7 @@ void init_system()
     can0.setBitrate(CAN_125KBPS, MCP_8MHZ);
     can0.setNormalMode();
 
-    init_devices();
+    // init_devices();
 }
 
 struct Packet
@@ -324,18 +363,18 @@ void command()
             // SET_DEVICE_CONTROLS
             uint8_t device_index = read_u8_from_data();
             uint8_t controls = read_u8_from_data();
-            static_assert(MAX_CONTROLS <= sizeof(controls) * 8,
-                          "Max 8 controls for now");
+            // static_assert(MAX_CONTROLS <= sizeof(controls) * 8,
+            //               "Max 8 controls for now");
 
-            if (device_index >= NUM_DEVICES)
-            {
-                send_error(0xb0);
-                return;
-            }
+            // if (device_index >= NUM_DEVICES)
+            // {
+            //     send_error(0xb0);
+            //     return;
+            // }
 
-            Device* device = &devices[device_index];
-            device->controls = controls;
-            device->need_update = true;
+            // Device* device = &devices[device_index];
+            // device->controls = controls;
+            // device->need_update = true;
 
             printf("SET_DEVICE_CONTROLS: 0x%x = 0x%x\n", device_index,
                    controls);
@@ -348,17 +387,17 @@ void command()
             // GET_DEVICE_CONTROLS
             uint8_t device_index = read_u8_from_data();
 
-            if (device_index >= NUM_DEVICES)
-            {
-                send_error(0xb0);
-                return;
-            }
+            // if (device_index >= NUM_DEVICES)
+            // {
+            //     send_error(0xb0);
+            //     return;
+            // }
 
-            Device* device = devices + device_index;
-            uint8_t controls = device->controls;
+            // Device* device = devices + device_index;
+            // uint8_t controls = device->controls;
 
             printf("GET_DEVICE_CONTROLS: 0x%x\n", device_index);
-            uint8_t data[] = {controls};
+            uint8_t data[] = {0};
             send_success(data, sizeof(data));
         }
         break;
@@ -368,17 +407,17 @@ void command()
 
             uint8_t device_index = read_u8_from_data();
 
-            if (device_index >= NUM_DEVICES)
-            {
-                send_error(0xb0);
-                return;
-            }
+            // if (device_index >= NUM_DEVICES)
+            // {
+            //     send_error(0xb0);
+            //     return;
+            // }
 
-            Device* device = devices + device_index;
-            uint8_t lines = device->lines;
+            // Device* device = devices + device_index;
+            // uint8_t lines = device->lines;
 
             printf("GET_DEVICE_LINES: 0x%x\n", device_index);
-            uint8_t data[] = {lines};
+            uint8_t data[] = {0};
             send_success(data, sizeof(data));
         }
         break;
@@ -451,34 +490,34 @@ void can_bus_thread(void* ptr)
         can_frame frame;
         if (can0.readMessage(&frame) == MCP2515::ERROR_OK)
         {
-            for (int i = 0; i < NUM_DEVICES; i++)
-            {
-                Device* device = devices + i;
-                if (frame.can_id == device->line_id() && frame.can_dlc == 2)
-                {
-                    uint8_t lines = frame.data[0];
-                    uint8_t toggled_lines = frame.data[1];
-                    device->lines = lines;
-                    device->toggled_lines = toggled_lines;
-                    printf("Wot: %d %d\n", lines, toggled_lines);
-                }
-            }
+            // for (int i = 0; i < NUM_DEVICES; i++)
+            // {
+            //     Device* device = devices + i;
+            //     if (frame.can_id == device->line_id() && frame.can_dlc == 2)
+            //     {
+            //         uint8_t lines = frame.data[0];
+            //         uint8_t toggled_lines = frame.data[1];
+            //         device->lines = lines;
+            //         device->toggled_lines = toggled_lines;
+            //         printf("Wot: %d %d\n", lines, toggled_lines);
+            //     }
+            // }
         }
 
-        for (int i = 0; i < NUM_DEVICES; i++)
-        {
-            Device* device = devices + i;
-            if (device->need_update)
-            {
-                can_frame send;
-                send.can_id = device->control_id();
-                send.can_dlc = 1;
-                send.data[0] = device->controls;
-                can0.sendMessage(&send);
-
-                device->need_update = false;
-            }
-        }
+        // for (int i = 0; i < NUM_DEVICES; i++)
+        // {
+        //     Device* device = devices + i;
+        //     if (device->need_update)
+        //     {
+        //         can_frame send;
+        //         send.can_id = device->control_id();
+        //         send.can_dlc = 1;
+        //         send.data[0] = device->controls;
+        //         can0.sendMessage(&send);
+        //
+        //         device->need_update = false;
+        //     }
+        // }
 
         vTaskDelay(1);
     }
