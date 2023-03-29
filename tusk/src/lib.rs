@@ -12,6 +12,13 @@ pub enum PacketType {
     Response = 0x04,
 }
 
+#[derive(Copy, Clone, Primitive, PartialEq, Debug)]
+#[repr(u8)]
+pub enum ResponseType {
+    Success = 0x00,
+    Err = 0x01,
+}
+
 /// Device Types
 #[derive(Copy, Clone, Primitive, PartialEq, Debug)]
 #[repr(u8)]
