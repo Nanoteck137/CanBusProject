@@ -5,7 +5,7 @@ use std::time::Duration;
 use clap::{Parser, Subcommand};
 use num_traits::ToPrimitive;
 use serialport::{SerialPortInfo, SerialPortType};
-use tusk::{JotaroCommands, PacketType, PACKET_START};
+use tusk::{PacketType, SPCommands, PACKET_START};
 
 static PID: AtomicU8 = AtomicU8::new(1);
 
@@ -359,7 +359,7 @@ fn run(port: &String, baudrate: u32) {
 
         Command::SetDeviceControls { device, controls } => {
             let mut data = Vec::new();
-            data.push(JotaroCommands::SetDeviceControls.to_u8().unwrap());
+            data.push(SPCommands::SetDeviceControls.to_u8().unwrap());
             data.push(device); // device
             data.push(controls);
             send_packet(&mut port, PacketType::Command, &data);
@@ -370,7 +370,7 @@ fn run(port: &String, baudrate: u32) {
 
         Command::GetDeviceControls { device } => {
             let mut data = Vec::new();
-            data.push(JotaroCommands::GetDeviceControls.to_u8().unwrap());
+            data.push(SPCommands::GetDeviceControls.to_u8().unwrap());
             data.push(device); // device
             send_packet(&mut port, PacketType::Command, &data);
 
@@ -380,7 +380,7 @@ fn run(port: &String, baudrate: u32) {
 
         Command::GetDeviceLines { device } => {
             let mut data = Vec::new();
-            data.push(JotaroCommands::GetDeviceLines.to_u8().unwrap());
+            data.push(SPCommands::GetDeviceLines.to_u8().unwrap());
             data.push(device); // device
             send_packet(&mut port, PacketType::Command, &data);
 
