@@ -241,6 +241,7 @@ void send_error(uint8_t err)
 
 enum MCUType : uint8_t
 {
+    Mcu_Unknown,
     Mcu_TheWorldOverHeaven,
 };
 
@@ -249,7 +250,7 @@ enum MCUType : uint8_t
         ((uint16_t)(patch)) & 0xf
 
 const uint16_t VERSION = MAKE_VERSION(0, 1, 0);
-static const char name[] = "DAAAAAAAAAAAAAAGHBBBBBBBBBBBBBBC";
+static const char name[] = "Control Unit";
 static_assert(sizeof(name) <= 33, "32 character limit on the name");
 
 void identify()

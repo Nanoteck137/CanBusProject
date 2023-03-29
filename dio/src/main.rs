@@ -385,7 +385,7 @@ fn run(port: &String, baudrate: u32) {
         Command::Identify => {
             send_empty_packet(&mut port, PacketType::Identify);
             let packet = wait_for_packet(&mut port);
-            let identity = Identify::parse(&packet.data);
+            let identity = Identify::parse(&packet.data[1..]);
             println!("Identity: {:?}", identity);
         }
 
