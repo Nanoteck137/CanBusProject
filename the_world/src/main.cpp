@@ -86,7 +86,7 @@ void init_system()
 struct Packet
 {
     uint8_t pid;
-    uint8_t typ;
+    PacketType typ;
     uint8_t data_len;
     uint16_t checksum;
 };
@@ -182,18 +182,18 @@ Packet parse_packet()
 
     Packet packet;
     packet.pid = pid;
-    packet.typ = typ;
+    packet.typ = (PacketType)typ;
     packet.data_len = data_len;
     packet.checksum = checksum;
 
     return packet;
 }
 
-void send_packet(uint8_t typ, uint8_t* data, uint8_t len)
+void send_packet(PacketType type, uint8_t* data, uint8_t len)
 {
     write_u8(PACKET_START);
     write_u8(0);
-    write_u8(typ);
+    write_u8((uint8_t)type);
 
     // Data Length
     if (data && len > 0)
@@ -212,7 +212,7 @@ void send_packet(uint8_t typ, uint8_t* data, uint8_t len)
     tud_cdc_n_write_flush(PORT_CMD);
 }
 
-void send_empty_packet(uint8_t typ) { send_packet(typ, nullptr, 0); }
+void send_empty_packet(PacketType type) { send_packet(type, nullptr, 0); }
 
 static bool send_updates = false;
 
@@ -221,7 +221,7 @@ static uint8_t temp[256];
 void send_success(uint8_t* data, uint8_t len)
 {
     // TODO(patrik): Check len
-    temp[0] = ResSuccess;
+    temp[0] = (uint8_t)ResponseType::Success;
     uint8_t data_length = 1;
 
     if (data && len > 0)
@@ -230,13 +230,13 @@ void send_success(uint8_t* data, uint8_t len)
         data_length += len;
     }
 
-    send_packet(PacketResponse, temp, data_length);
+    send_packet(PacketType::Response, temp, data_length);
 }
 
-void send_error(uint8_t err)
+void send_error(uint8_t error_code)
 {
-    uint8_t data[] = {ResError, err};
-    send_packet(PacketResponse, data, sizeof(data));
+    uint8_t data[] = {(uint8_t)ResponseType::Err, error_code};
+    send_packet(PacketType::Response, data, sizeof(data));
 }
 
 enum MCUType : uint8_t
@@ -301,8 +301,7 @@ void command_set(uint8_t var, uint32_t value)
 
         default: {
             // TODO(patrik): Change error code
-            uint8_t data[] = {ResError, 0xff};
-            send_packet(PacketResponse, data, sizeof(data));
+            send_error(0xff);
         }
         break;
     }
@@ -402,11 +401,11 @@ void handle_packets()
 
             switch (packet.typ)
             {
-                case PacketIdentify: identify(); break;
-                case PacketCommand: command(); break;
-                case PacketPing: ping(); break;
-                case PacketUpdate: update(); break;
-                case PacketResponse: response(); break;
+                case PacketType::Identify: identify(); break;
+                case PacketType::Command: command(); break;
+                case PacketType::Ping: ping(); break;
+                case PacketType::Update: update(); break;
+                case PacketType::Response: response(); break;
 
                 default:
                     // TODO(patrik): Change the error
@@ -485,33 +484,33 @@ void can_bus_thread(void* ptr)
     }
 }
 
-void test_thread(void* ptr)
-{
-    Device* device = devices + 0;
-    bool last = (device->toggled_lines & 0x1) > 0;
-    while (true)
-    {
-        bool current = (device->toggled_lines & 0x1) > 0;
-
-        if (current && last != current)
-        {
-            printf("On\n");
-            device->controls = 0b1;
-            device->need_update = true;
-        }
-
-        if (!current && last != current)
-        {
-            printf("Off\n");
-            device->controls = 0b0;
-            device->need_update = true;
-        }
-
-        last = current;
-
-        vTaskDelay(1);
-    }
-}
+// void test_thread(void* ptr)
+// {
+//     Device* device = devices + 0;
+//     bool last = (device->toggled_lines & 0x1) > 0;
+//     while (true)
+//     {
+//         bool current = (device->toggled_lines & 0x1) > 0;
+//
+//         if (current && last != current)
+//         {
+//             printf("On\n");
+//             device->controls = 0b1;
+//             device->need_update = true;
+//         }
+//
+//         if (!current && last != current)
+//         {
+//             printf("Off\n");
+//             device->controls = 0b0;
+//             device->need_update = true;
+//         }
+//
+//         last = current;
+//
+//         vTaskDelay(1);
+//     }
+// }
 
 static TaskHandle_t usb_thread_handle;
 static TaskHandle_t com_thread_handle;
@@ -521,12 +520,22 @@ int main()
 {
     init_system();
 
+    // SP Device:
+    //  - COM
+    //  - Check Can bus
+
+    // GE Device:
+    //  - COM
+    //  - Check Can bus
+    //  - Check pins
+
     xTaskCreate(usb_thread, "USB Thread", configMINIMAL_STACK_SIZE, nullptr,
                 tskIDLE_PRIORITY + 4, &usb_thread_handle);
     xTaskCreate(can_bus_thread, "Can Bus Thread", configMINIMAL_STACK_SIZE,
                 nullptr, tskIDLE_PRIORITY + 3, &can_bus_thread_handle);
-    xTaskCreate(test_thread, "Test Thread", configMINIMAL_STACK_SIZE, nullptr,
-                tskIDLE_PRIORITY + 2, &can_bus_thread_handle);
+    // xTaskCreate(test_thread, "Test Thread", configMINIMAL_STACK_SIZE,
+    // nullptr,
+    //             tskIDLE_PRIORITY + 2, &can_bus_thread_handle);
     xTaskCreate(com_thread, "COM Thread", configMINIMAL_STACK_SIZE, nullptr,
                 tskIDLE_PRIORITY + 1, &com_thread_handle);
 
