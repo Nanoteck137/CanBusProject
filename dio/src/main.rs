@@ -3,9 +3,9 @@ use std::sync::atomic::AtomicU8;
 use std::time::Duration;
 
 use clap::{Parser, Subcommand};
-use num_traits::ToPrimitive;
+use num_traits::{FromPrimitive, ToPrimitive};
 use serialport::{SerialPortInfo, SerialPortType};
-use tusk::{PacketType, SPCommands, PACKET_START};
+use tusk::{DeviceType, PacketType, SPCommands, PACKET_START};
 
 static PID: AtomicU8 = AtomicU8::new(1);
 
@@ -309,7 +309,7 @@ impl std::fmt::Debug for Version {
 #[derive(Debug)]
 struct Identify {
     version: Version,
-    typ: u8,
+    typ: DeviceType,
     name: String,
 }
 
@@ -321,6 +321,8 @@ impl Identify {
 
         let version = u16::from_le_bytes(data[0..2].try_into().ok()?);
         let typ = data[2];
+        // TODO(patrik): Better error
+        let typ = DeviceType::from_u8(typ).expect("Failed to convert type");
         let name = &data[3..];
 
         let find_zero = |a: &[u8]| {
