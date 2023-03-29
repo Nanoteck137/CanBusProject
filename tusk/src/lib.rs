@@ -1,5 +1,8 @@
 use enum_primitive_derive::Primitive;
 
+pub const MAX_DEVICES: usize = 8;
+pub const MAX_IO: usize = 8;
+
 pub const PACKET_START: u8 = 0x4e;
 
 #[derive(Copy, Clone, Primitive, PartialEq, Debug)]
