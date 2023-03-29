@@ -3,5 +3,4 @@
 members = [
     "dio",
     "ora",
-    "tusk-rs"
 ]
