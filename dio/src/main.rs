@@ -345,41 +345,7 @@ impl Identify {
 }
 
 fn run(port: &String, baudrate: u32) {
-    let mut port = serialport::new(port, baudrate)
-        // .timeout(Duration::from_millis(5000))
-        .open()
-        .unwrap();
-
-    // let stdin = std::io::stdin();
-    // let mut lock = stdin.lock();
-    // let mut s = String::new();
-    // lock.read_line(&mut s).unwrap();
-    // let s = s.trim();
-
-    // let mut data = Vec::new();
-    // data.push(0x01); // SET_DEVICE_CONTROLS
-    // data.push(0x00); // device
-    // data.push(0b000001111);
-    // send_packet(&mut port, PacketType::Command, &data);
-    //
-    // let packet = wait_for_packet(&mut port);
-    // println!("Packet: {:?}", packet);
-    //
-    // let mut data = Vec::new();
-    // data.push(0x02); // GET_DEVICE_CONTROLS
-    // data.push(0x00); // device
-    // send_packet(&mut port, PacketType::Command, &data);
-    //
-    // let packet = wait_for_packet(&mut port);
-    // println!("Packet: {:?}", packet);
-    //
-    // let mut data = Vec::new();
-    // data.push(0x03); // GET_DEVICE_LINES
-    // data.push(0x00); // device
-    // send_packet(&mut port, PacketType::Command, &data);
-    //
-    // let packet = wait_for_packet(&mut port);
-    // println!("Packet: {:?}", packet);
+    let mut port = serialport::new(port, baudrate).open().unwrap();
 
     let cmd = "identify";
     let cmd = parse_cmd(cmd).unwrap();
