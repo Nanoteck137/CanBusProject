@@ -12,11 +12,27 @@ pub enum PacketType {
     Response = 0x04,
 }
 
+/// Device Types
 #[derive(Copy, Clone, Primitive, PartialEq, Debug)]
 #[repr(u8)]
-pub enum JotaroCommands {
+pub enum DeviceType {
+    StarPlatinum = 0x00,
+    GoldExperience = 0x01,
+}
+
+/// Commands for Star Platinum (SP) Devices
+#[derive(Copy, Clone, Primitive, PartialEq, Debug)]
+#[repr(u8)]
+pub enum SPCommands {
     Configure = 0x00,
     SetDeviceControls = 0x01,
     GetDeviceControls = 0x02,
     GetDeviceLines = 0x03,
+}
+
+/// Commands for Gold Experience (GE) Devices
+#[derive(Copy, Clone, Primitive, PartialEq, Debug)]
+#[repr(u8)]
+pub enum GECommands {
+    Empty = 0x00,
 }
