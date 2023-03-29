@@ -61,11 +61,31 @@ where
     }
 }
 
+fn generate_tusk_bindings() {
+    std::fs::create_dir_all("build/tusk").unwrap();
+    let output = "build/tusk/tusk.h";
+
+    let status = Command::new("cbindgen")
+        .arg("tusk")
+        .arg("-o")
+        .arg(output)
+        .status()
+        .unwrap();
+    if !status.success() {
+        panic!(
+            "Failed to generate tusk bindings ({})",
+            status.code().unwrap_or_else(|| 0),
+        );
+    }
+}
+
 fn main() {
     let args = Args::parse();
 
     match args.action {
         Action::Firmware {} => {
+            generate_tusk_bindings();
+
             println!("---------------------------------------------");
             std::fs::create_dir_all("build/the_world").unwrap();
             println!("Running cmake");
