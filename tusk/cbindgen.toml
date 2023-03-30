@@ -57,7 +57,7 @@ usize_is_size_t = true
 
 
 [export]
-include = ["PacketType", "ResponseType", "DeviceType", "SPCommands", "GECommands"]
+include = ["PacketType", "ResponseType", "ErrorCode", "DeviceType", "SPCommands", "GECommands"]
 exclude = []
 # prefix = "CAPI_"
 item_types = []

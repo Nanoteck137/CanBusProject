@@ -22,6 +22,14 @@ pub enum ResponseType {
     Err = 0x01,
 }
 
+#[derive(Copy, Clone, Primitive, PartialEq, Debug)]
+#[repr(u8)]
+pub enum ErrorCode {
+    Unknown = 0x00,
+    InvalidPacketType = 0x01,
+    InvalidCommand = 0x02,
+}
+
 /// Device Types
 #[derive(Copy, Clone, Primitive, PartialEq, Debug)]
 #[repr(u8)]
