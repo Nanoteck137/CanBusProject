@@ -1,10 +1,9 @@
-use std::io::Write;
+use std::io::{ErrorKind, Write};
 use std::sync::atomic::AtomicU8;
 use std::time::Duration;
 
 use clap::{Parser, Subcommand};
 use num_traits::{FromPrimitive, ToPrimitive};
-use serialport::{SerialPortInfo, SerialPortType};
 use tusk::{
     DeviceType, ErrorCode, PacketType, ResponseType, SPCommands, PACKET_START,
 };
@@ -245,7 +244,12 @@ fn run_debug_monitor(port: &String, baudrate: u32) {
 
     loop {
         let mut buf = [0; 1];
-        port.read(&mut buf).unwrap();
+        if let Err(e) = port.read(&mut buf) {
+            if e.kind() == ErrorKind::TimedOut {
+                continue;
+            }
+        }
+
         std::io::stdout().write(&buf).unwrap();
     }
 }
