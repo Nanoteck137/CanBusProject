@@ -237,58 +237,6 @@ fn send_empty_packet(
     send_packet(port, typ, &[]);
 }
 
-fn print_port(port: &SerialPortInfo) {
-    if let SerialPortType::UsbPort(info) = &port.port_type {
-        if let Some(product) = &info.product {
-            print!(" {}", product);
-        }
-
-        if let Some(manufacturer) = &info.manufacturer {
-            print!(" ({})", manufacturer);
-        }
-
-        print!(" {}", port.port_name);
-        println!();
-    } else {
-        panic!("Only USB based serial ports is supported");
-    }
-}
-
-fn choose_port() -> SerialPortInfo {
-    let ports = serialport::available_ports().unwrap();
-    for port in &ports {
-        println!("Port: {:#?}", port);
-    }
-
-    let ports = ports
-        .iter()
-        .filter(|i| {
-            matches!(i.port_type, serialport::SerialPortType::UsbPort(..))
-        })
-        .collect::<Vec<_>>();
-
-    for i in 0..ports.len() {
-        let port = &ports[i];
-        print!("{}:", i);
-        print_port(port);
-    }
-
-    let index = loop {
-        print!("Choose device: ");
-        std::io::stdout().flush().unwrap();
-
-        let mut buffer = String::new();
-        std::io::stdin().read_line(&mut buffer).unwrap();
-
-        match buffer.trim_end().parse::<usize>() {
-            Ok(num) => break num,
-            Err(_) => continue,
-        }
-    };
-
-    ports[index].clone()
-}
-
 fn run_debug_monitor(port: &String, baudrate: u32) {
     let mut port = serialport::new(port, baudrate)
         .timeout(Duration::from_millis(5000))
