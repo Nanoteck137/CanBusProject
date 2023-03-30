@@ -237,10 +237,7 @@ fn send_empty_packet(
 }
 
 fn run_debug_monitor(port: &String, baudrate: u32) {
-    let mut port = serialport::new(port, baudrate)
-        .timeout(Duration::from_millis(5000))
-        .open()
-        .unwrap();
+    let mut port = serialport::new(port, baudrate).open().unwrap();
 
     let mut buf = [0; 1024];
     loop {
