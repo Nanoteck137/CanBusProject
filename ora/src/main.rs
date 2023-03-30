@@ -8,6 +8,8 @@ use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use tusk::DeviceType;
 
+mod spec;
+
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -212,6 +214,9 @@ struct DeviceSpec {
 }
 
 fn main() {
+    spec::test();
+    panic!();
+
     let args = Args::parse();
 
     let s = {
