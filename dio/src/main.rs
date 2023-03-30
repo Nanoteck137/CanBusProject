@@ -5,7 +5,9 @@ use std::time::Duration;
 use clap::{Parser, Subcommand};
 use num_traits::{FromPrimitive, ToPrimitive};
 use serialport::{SerialPortInfo, SerialPortType};
-use tusk::{DeviceType, PacketType, SPCommands, PACKET_START};
+use tusk::{
+    DeviceType, ErrorCode, PacketType, ResponseType, SPCommands, PACKET_START,
+};
 
 static PID: AtomicU8 = AtomicU8::new(1);
 
@@ -31,41 +33,51 @@ fn parse_u8(s: &str) -> Option<u8> {
     }
 }
 
-fn parse_cmd(cmd: &str) -> Option<Command> {
+fn parse_cmd(cmd: &str, device_type: DeviceType) -> Option<Command> {
     let mut split = cmd.split(' ');
 
     let cmd = split.next()?;
-    println!("Cmd: {}", cmd);
 
     match cmd {
-        "identify" => Some(Command::Identify),
+        "Identify" => Some(Command::Identify),
 
-        "set_device_controls" => {
-            // set_device_controls 0 0b00000000
-            let device = split.next()?;
-            let device = parse_u8(device)?;
+        _ => match device_type {
+            DeviceType::StarPlatinum => {
+                match cmd {
+                    "SetDeviceControls" => {
+                        // SetDeviceControls 0 0b00000000
+                        let device = split.next()?;
+                        let device = parse_u8(device)?;
 
-            let controls = split.next()?;
-            let controls = parse_u8(controls)?;
+                        let controls = split.next()?;
+                        let controls = parse_u8(controls)?;
 
-            Some(Command::SetDeviceControls { device, controls })
-        }
+                        Some(Command::SetDeviceControls { device, controls })
+                    }
 
-        "get_device_controls" => {
-            // get_device_controls 0
-            let device = split.next()?;
-            let device = parse_u8(device)?;
+                    "GetDeviceControls" => {
+                        // GetDeviceControls 0
+                        let device = split.next()?;
+                        let device = parse_u8(device)?;
 
-            Some(Command::GetDeviceControls { device })
-        }
+                        Some(Command::GetDeviceControls { device })
+                    }
 
-        "get_device_lines" => {
-            // get_device_lines 0
-            let device = split.next()?;
-            let device = parse_u8(device)?;
+                    "GetDeviceLines" => {
+                        // GetDeviceLines 0
+                        let device = split.next()?;
+                        let device = parse_u8(device)?;
 
-            Some(Command::GetDeviceLines { device })
-        }
+                        Some(Command::GetDeviceLines { device })
+                    }
+
+                    _ => None,
+                }
+            }
+            DeviceType::GoldExperience => match cmd {
+                _ => None,
+            },
+        },
 
         _ => None,
     }
@@ -94,6 +106,8 @@ enum Action {
 
         #[arg(short, long, default_value_t = 115200)]
         baudrate: u32,
+
+        cmd: String,
     },
 }
 
@@ -105,9 +119,26 @@ struct Packet {
     checksum: u16,
 }
 
-impl Packet {}
+impl Packet {
+    fn response(&self) -> Result<&[u8], ErrorCode> {
+        if self.typ == PacketType::Response {
+            let response_type = ResponseType::from_u8(self.data[0]).unwrap();
+            match response_type {
+                ResponseType::Success => Ok(&self.data[1..]),
 
-fn parse_packet(port: &mut Box<dyn serialport::SerialPort>) -> Packet {
+                ResponseType::Err => {
+                    let error_code = ErrorCode::from_u8(self.data[1])
+                        .unwrap_or(ErrorCode::Unknown);
+                    Err(error_code)
+                }
+            }
+        } else {
+            Err(ErrorCode::InvalidResponse)
+        }
+    }
+}
+
+fn get_next_packet(port: &mut Box<dyn serialport::SerialPort>) -> Packet {
     let mut pid = None;
     let mut typ = None;
     let mut data_len = None;
@@ -276,13 +307,15 @@ fn wait_for_packet(port: &mut Box<dyn serialport::SerialPort>) -> Packet {
         let mut buf = [0; 1];
         if let Ok(_) = port.read_exact(&mut buf) {
             if buf[0] == PACKET_START {
-                let packet = parse_packet(port);
+                let packet = get_next_packet(port);
                 return packet;
             }
         }
     }
 }
 
+#[derive(Clone)]
+#[repr(transparent)]
 struct Version(u16);
 
 impl Version {
@@ -306,7 +339,7 @@ impl std::fmt::Debug for Version {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Identify {
     version: Version,
     typ: DeviceType,
@@ -346,17 +379,31 @@ impl Identify {
     }
 }
 
-fn run(port: &String, baudrate: u32) {
+fn run(port: &String, baudrate: u32, cmd: &str) {
     let mut port = serialport::new(port, baudrate).open().unwrap();
 
-    let cmd = "identify";
-    let cmd = parse_cmd(cmd).unwrap();
+    send_empty_packet(&mut port, PacketType::Identify);
+    let packet = wait_for_packet(&mut port);
+    let info = match packet.response() {
+        Ok(data) => {
+            Identify::parse(data).expect("Failed to parse identify data")
+        }
+        Err(error_code) => {
+            panic!("Failed to identify device: {:?}", error_code)
+        }
+    };
+
+    // let cmd = "set_device_controls 0 0xff";
+    let cmd = parse_cmd(cmd, info.typ).expect("Failed to parse command");
+
     match cmd {
         Command::Identify => {
             send_empty_packet(&mut port, PacketType::Identify);
             let packet = wait_for_packet(&mut port);
-            let identity = Identify::parse(&packet.data[1..]);
-            println!("Identity: {:?}", identity);
+            match packet.response() {
+                Ok(data) => println!("Identity: {:?}", Identify::parse(data)),
+                Err(error_code) => eprintln!("Error: {:?}", error_code),
+            }
         }
 
         Command::SetDeviceControls { device, controls } => {
@@ -367,7 +414,10 @@ fn run(port: &String, baudrate: u32) {
             send_packet(&mut port, PacketType::Command, &data);
 
             let packet = wait_for_packet(&mut port);
-            println!("Packet: {:?}", packet);
+            match packet.response() {
+                Ok(_) => println!("Success"),
+                Err(error_code) => eprintln!("Error: {:?}", error_code),
+            }
         }
 
         Command::GetDeviceControls { device } => {
@@ -406,6 +456,10 @@ fn main() {
         }
 
         Action::Debug { port, baudrate } => run_debug_monitor(&port, baudrate),
-        Action::Run { port, baudrate } => run(&port, baudrate),
+        Action::Run {
+            port,
+            baudrate,
+            cmd,
+        } => run(&port, baudrate, &cmd),
     }
 }
