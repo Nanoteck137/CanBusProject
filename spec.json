@@ -1,0 +1,40 @@
+{
+    "SP": [
+        {
+            "name": "RSNav",
+            "devices": [
+                "Back"
+            ]
+        }
+    ],
+    "GE": [
+        {
+            "name": "Front",
+            "devices": [],
+            "lines": [
+                {
+                    "name": "Left",
+                    "pin": 19
+                },
+                {
+                    "name": "Middle",
+                    "pin": 20
+                },
+                {
+                    "name": "Right",
+                    "pin": 21
+                }
+            ],
+            "controls": [
+                {
+                    "name": "Led Ramp",
+                    "pin": 25
+                }
+            ]
+        },
+        {
+            "name": "Back",
+            "devices": []
+        }
+    ]
+}
