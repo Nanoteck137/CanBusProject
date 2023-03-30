@@ -15,6 +15,7 @@ pico_sdk_init()
 
 add_executable(the_world
 	src/main.cpp
+	src/serial_number.cpp
 	src/com.cpp
 	src/usb_descriptors.c
 
@@ -27,6 +28,7 @@ target_include_directories(the_world PRIVATE ${THIRD_PARTY_DIR}/pico-mcp2515/inc
 
 target_link_libraries(the_world PRIVATE
 	pico_stdlib
+	pico_unique_id
 	hardware_spi
 	tinyusb_device
 	tinyusb_board

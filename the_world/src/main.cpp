@@ -5,6 +5,7 @@
 
 #include "common.h"
 
+#include "serial_number.h"
 #include "com.h"
 
 #include "tusk.h"
@@ -45,6 +46,7 @@ stdio_driver_t debug_driver = {
 
 void init_system()
 {
+    serial_number_init();
     board_init();
     tusb_init();
 
