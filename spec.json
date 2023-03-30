@@ -10,6 +10,7 @@
     "GE": [
         {
             "name": "Front",
+            "can_id": "0x100",
             "devices": [],
             "lines": [
                 {
@@ -34,7 +35,24 @@
         },
         {
             "name": "Back",
-            "devices": []
+            "can_id": "0x200",
+            "devices": [
+                {
+                    "name": "Front",
+                    "mapping": [
+                        {
+                            "line": "Left",
+                            "toggle_control": "Back Lamp"
+                        }
+                    ]
+                }
+            ],
+            "controls": [
+                {
+                    "name": "Back Lamp",
+                    "pin": 13
+                }
+            ]
         }
     ]
 }

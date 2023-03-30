@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
@@ -47,15 +48,8 @@ where
     });
     s += "    }";
 
-    let num_lines = device_spec.lines.len();
     let num_controls = device_spec.controls.len();
-
-    let mut lines = String::new();
-    lines += "{ ";
-    device_spec.lines.iter().for_each(|line| {
-        lines += format!("{}, ", line).as_str();
-    });
-    lines += "}";
+    let num_lines = device_spec.lines.len();
 
     let mut controls = String::new();
     controls += "{ ";
@@ -63,6 +57,13 @@ where
         controls += format!("{}, ", control).as_str();
     });
     controls += "}";
+
+    let mut lines = String::new();
+    lines += "{ ";
+    device_spec.lines.iter().for_each(|line| {
+        lines += format!("{}, ", line).as_str();
+    });
+    lines += "}";
 
     let s = format!(
         r#"
@@ -77,11 +78,11 @@ Config config = {{
 
     .devices = {s},
 
-    .num_lines = {num_lines},
-    .lines = {lines},
-
     .num_controls = {num_controls},
     .controls = {controls},
+
+    .num_lines = {num_lines},
+    .lines = {lines},
 }};
     "#
     );
@@ -124,7 +125,12 @@ where
 {
     let path = path.as_ref();
 
-    let status = Command::new("make").arg("-C").arg(path).status().unwrap();
+    let status = Command::new("make")
+        .arg("-j8")
+        .arg("-C")
+        .arg(path)
+        .status()
+        .unwrap();
 
     if !status.success() {
         panic!(
@@ -162,18 +168,20 @@ struct Sp {
 #[derive(Serialize, Deserialize, Debug)]
 struct Line {
     name: String,
-    pin: usize,
+    pin: u32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Control {
     name: String,
-    pin: usize,
+    pin: u32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Ge {
     name: String,
+    can_id: String,
+    devices: Vec<String>,
     lines: Option<Vec<Line>>,
     controls: Option<Vec<Control>>,
 }
@@ -186,10 +194,12 @@ struct Spec {
     ge: Vec<Ge>,
 }
 
+#[derive(Clone, Debug)]
 struct ConnectedDevice {
     can_id: u32,
 }
 
+#[derive(Clone, Debug)]
 struct DeviceSpec {
     name: String,
     device_type: DeviceType,
@@ -217,42 +227,98 @@ fn main() {
     let spec = serde_json::from_str::<Spec>(&s).unwrap();
     println!("Spec: {:#?}", spec);
 
-    let other_device = DeviceSpec {
-        name: "Other Device".to_string(),
-        device_type: DeviceType::GoldExperience,
-        can_id: 0x100,
+    let mut devices = HashMap::new();
 
-        devices: Vec::new(),
+    spec.sp.iter().for_each(|dev| {
+        let spec = DeviceSpec {
+            name: dev.name.clone(),
+            device_type: DeviceType::StarPlatinum,
+            can_id: 0,
 
-        lines: vec![16, 17],
-        controls: vec![15],
-    };
+            devices: Vec::new(),
 
-    let test_spec = DeviceSpec {
-        name: "Test Device".to_string(),
-        device_type: DeviceType::StarPlatinum,
-        can_id: 0,
+            lines: Vec::new(),
+            controls: Vec::new(),
+        };
 
-        devices: vec![ConnectedDevice { can_id: 0x100 }],
+        if devices.get(&dev.name).is_some() {
+            panic!("Duplicated device name: '{}'", dev.name);
+        }
 
-        lines: Vec::new(),
-        controls: Vec::new(),
-    };
+        devices.insert(dev.name.clone(), spec);
+    });
+
+    spec.ge.iter().for_each(|dev| {
+        let mut lines = Vec::new();
+        if let Some(l) = &dev.lines {
+            l.iter().for_each(|line| lines.push(line.pin));
+        }
+
+        let mut controls = Vec::new();
+        if let Some(c) = &dev.controls {
+            c.iter().for_each(|control| controls.push(control.pin));
+        }
+
+        assert_eq!(&dev.can_id[0..2], "0x");
+        // TODO(patrik): Remove unwrap
+        let can_id = u32::from_str_radix(&dev.can_id[2..], 16).unwrap();
+
+        let spec = DeviceSpec {
+            name: dev.name.clone(),
+            device_type: DeviceType::GoldExperience,
+            can_id,
+
+            devices: Vec::new(),
+
+            lines,
+            controls,
+        };
+
+        if devices.get(&dev.name).is_some() {
+            panic!("Duplicated device name: '{}'", dev.name);
+        }
+
+        devices.insert(dev.name.clone(), spec);
+    });
+
+    // Update references to devices
+
+    spec.sp.iter().for_each(|dev| {
+        for name in &dev.devices {
+            let can_id = devices.get(name).unwrap().can_id;
+            let dev = devices.get_mut(&dev.name).unwrap();
+            dev.devices.push(ConnectedDevice { can_id });
+        }
+    });
+
+    spec.ge.iter().for_each(|dev| {
+        for name in &dev.devices {
+            let can_id = devices.get(name).unwrap().can_id;
+            let dev = devices.get_mut(&dev.name).unwrap();
+            dev.devices.push(ConnectedDevice { can_id });
+        }
+    });
 
     match args.action {
         Action::Firmware {} => {
             generate_tusk_bindings();
 
-            println!("---------------------------------------------");
-            std::fs::create_dir_all("build/the_world").unwrap();
-            println!("Generating gen.cpp");
-            generate_gen_file("build/the_world", &other_device);
-            println!("Running cmake");
-            // generate_cmake_project("the_world", "build/the_world");
-            println!();
-            println!("Running make");
-            // compile_with_make("build/the_world");
-            println!("---------------------------------------------");
+            for (_, device) in &devices {
+                let name = &device.name;
+                let build_path = format!("build/{}", name);
+
+                println!("---------------------------------------------");
+                println!("Building firmware for device: '{}'", name);
+                std::fs::create_dir_all(&build_path).unwrap();
+                println!("Generating gen.cpp");
+                generate_gen_file(&build_path, device);
+                println!("Running cmake");
+                generate_cmake_project("the_world", &build_path);
+                println!();
+                println!("Running make");
+                compile_with_make(&build_path);
+                println!("---------------------------------------------");
+            }
         }
 
         Action::TestFirmware {} => {
