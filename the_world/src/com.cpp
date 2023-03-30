@@ -141,15 +141,17 @@ void send_success(uint8_t* data, uint8_t len)
     send_packet(PacketType::Response, temp, data_length);
 }
 
-void send_error(uint8_t error_code)
+void send_error(ErrorCode error_code)
 {
-    uint8_t data[] = {(uint8_t)ResponseType::Err, error_code};
+    uint8_t data[] = {(uint8_t)ResponseType::Err, (uint8_t)error_code};
     send_packet(PacketType::Response, data, sizeof(data));
 }
 
 void identify()
 {
     uint8_t buffer[2 + 1 + 32] = {0};
+
+    // Version
     buffer[0] = config.version & 0xff;
     buffer[1] = (config.version >> 8) & 0xff;
 
@@ -239,13 +241,11 @@ void command()
         }
         break;
 
-        default: send_error(0xfd); break;
+        default: send_error(ErrorCode::InvalidCommand); break;
     }
 }
 
 void ping() { send_success(nullptr, 0); }
-void update() { send_error(0xff); };
-void response() { send_error(0xff); };
 
 void handle_packets()
 {
@@ -261,12 +261,10 @@ void handle_packets()
                 case PacketType::Identify: identify(); break;
                 case PacketType::Command: command(); break;
                 case PacketType::Ping: ping(); break;
-                case PacketType::Update: update(); break;
-                case PacketType::Response: response(); break;
 
                 default:
                     // TODO(patrik): Change the error
-                    send_error(0xff);
+                    send_error(ErrorCode::InvalidPacketType);
                     break;
             }
         }
