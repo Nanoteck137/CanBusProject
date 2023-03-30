@@ -167,29 +167,25 @@ void identify()
 
 void command()
 {
-    uint8_t cmd = read_u8_from_data();
+    SPCommands cmd = (SPCommands)read_u8_from_data();
     switch (cmd)
     {
-        case 0x00: {
-            // CONFIGURE
+        case SPCommands::Configure: {
             uint8_t send_updates = read_u8_from_data();
             printf("CONFIGURE SU: %d\n", send_updates > 0 ? true : false);
             send_success(nullptr, 0);
         }
         break;
 
-        case 0x01: {
-            // SET_DEVICE_CONTROLS
+        case SPCommands::SetDeviceControls: {
             uint8_t device_index = read_u8_from_data();
             uint8_t controls = read_u8_from_data();
-            // static_assert(MAX_CONTROLS <= sizeof(controls) * 8,
-            //               "Max 8 controls for now");
 
-            // if (device_index >= NUM_DEVICES)
-            // {
-            //     send_error(0xb0);
-            //     return;
-            // }
+            if (device_index >= NUM_DEVICES)
+            {
+                send_error(ErrorCode::InvalidDevice);
+                return;
+            }
 
             // Device* device = &devices[device_index];
             // device->controls = controls;
@@ -202,15 +198,14 @@ void command()
         }
         break;
 
-        case 0x02: {
-            // GET_DEVICE_CONTROLS
+        case SPCommands::GetDeviceControls: {
             uint8_t device_index = read_u8_from_data();
 
-            // if (device_index >= NUM_DEVICES)
-            // {
-            //     send_error(0xb0);
-            //     return;
-            // }
+            if (device_index >= NUM_DEVICES)
+            {
+                send_error(ErrorCode::InvalidDevice);
+                return;
+            }
 
             // Device* device = devices + device_index;
             // uint8_t controls = device->controls;
@@ -221,16 +216,14 @@ void command()
         }
         break;
 
-        case 0x03: {
-            // GET_DEVICE_LINES
-
+        case SPCommands::GetDeviceLines: {
             uint8_t device_index = read_u8_from_data();
 
-            // if (device_index >= NUM_DEVICES)
-            // {
-            //     send_error(0xb0);
-            //     return;
-            // }
+            if (device_index >= NUM_DEVICES)
+            {
+                send_error(ErrorCode::InvalidDevice);
+                return;
+            }
 
             // Device* device = devices + device_index;
             // uint8_t lines = device->lines;
