@@ -1,6 +1,6 @@
 use std::io::{ErrorKind, Write};
+use std::str::Split;
 use std::sync::atomic::AtomicU8;
-use std::time::Duration;
 
 use clap::{Parser, Subcommand};
 use num_traits::{FromPrimitive, ToPrimitive};
@@ -11,11 +11,26 @@ use tusk::{
 static PID: AtomicU8 = AtomicU8::new(1);
 
 #[derive(Debug)]
-enum Command {
-    Identify,
+enum SPCommand {
     SetDeviceControls { device: u8, controls: u8 },
     GetDeviceControls { device: u8 },
     GetDeviceLines { device: u8 },
+}
+
+#[derive(Debug)]
+enum GECommand {}
+
+#[derive(Debug)]
+enum DeviceCommand {
+    StarPlatinum(SPCommand),
+    GoldExperience(GECommand),
+}
+
+#[derive(Debug)]
+enum Command {
+    Identify,
+
+    DeviceSpecific(DeviceCommand),
 }
 
 fn parse_u8(s: &str) -> Option<u8> {
@@ -32,6 +47,43 @@ fn parse_u8(s: &str) -> Option<u8> {
     }
 }
 
+fn parse_sp_cmd(cmd: &str, mut split: Split<char>) -> Option<SPCommand> {
+    match cmd {
+        "SetDeviceControls" => {
+            // SetDeviceControls 0 0b00000000
+            let device = split.next()?;
+            let device = parse_u8(device)?;
+
+            let controls = split.next()?;
+            let controls = parse_u8(controls)?;
+
+            Some(SPCommand::SetDeviceControls { device, controls })
+        }
+
+        "GetDeviceControls" => {
+            // GetDeviceControls 0
+            let device = split.next()?;
+            let device = parse_u8(device)?;
+
+            Some(SPCommand::GetDeviceControls { device })
+        }
+
+        "GetDeviceLines" => {
+            // GetDeviceLines 0
+            let device = split.next()?;
+            let device = parse_u8(device)?;
+
+            Some(SPCommand::GetDeviceLines { device })
+        }
+
+        _ => None,
+    }
+}
+
+fn parse_ge_cmd(_cmd: &str, _split: Split<char>) -> Option<GECommand> {
+    None
+}
+
 fn parse_cmd(cmd: &str, device_type: DeviceType) -> Option<Command> {
     let mut split = cmd.split(' ');
 
@@ -41,44 +93,14 @@ fn parse_cmd(cmd: &str, device_type: DeviceType) -> Option<Command> {
         "Identify" => Some(Command::Identify),
 
         _ => match device_type {
-            DeviceType::StarPlatinum => {
-                match cmd {
-                    "SetDeviceControls" => {
-                        // SetDeviceControls 0 0b00000000
-                        let device = split.next()?;
-                        let device = parse_u8(device)?;
+            DeviceType::StarPlatinum => Some(Command::DeviceSpecific(
+                DeviceCommand::StarPlatinum(parse_sp_cmd(cmd, split)?),
+            )),
 
-                        let controls = split.next()?;
-                        let controls = parse_u8(controls)?;
-
-                        Some(Command::SetDeviceControls { device, controls })
-                    }
-
-                    "GetDeviceControls" => {
-                        // GetDeviceControls 0
-                        let device = split.next()?;
-                        let device = parse_u8(device)?;
-
-                        Some(Command::GetDeviceControls { device })
-                    }
-
-                    "GetDeviceLines" => {
-                        // GetDeviceLines 0
-                        let device = split.next()?;
-                        let device = parse_u8(device)?;
-
-                        Some(Command::GetDeviceLines { device })
-                    }
-
-                    _ => None,
-                }
-            }
-            DeviceType::GoldExperience => match cmd {
-                _ => None,
-            },
+            DeviceType::GoldExperience => Some(Command::DeviceSpecific(
+                DeviceCommand::GoldExperience(parse_ge_cmd(cmd, split)?),
+            )),
         },
-
-        _ => None,
     }
 }
 
@@ -332,6 +354,54 @@ impl Identify {
     }
 }
 
+fn exec_sp_command(
+    port: &mut Box<dyn serialport::SerialPort>,
+    cmd: SPCommand,
+) {
+    match cmd {
+        SPCommand::SetDeviceControls { device, controls } => {
+            let mut data = Vec::new();
+            data.push(SPCommands::SetDeviceControls.to_u8().unwrap());
+            data.push(device); // device
+            data.push(controls);
+            send_packet(port, PacketType::Command, &data);
+
+            let packet = wait_for_packet(port);
+            match packet.response() {
+                Ok(_) => println!("Success"),
+                Err(error_code) => eprintln!("Error: {:?}", error_code),
+            }
+        }
+
+        SPCommand::GetDeviceControls { device } => {
+            let mut data = Vec::new();
+            data.push(SPCommands::GetDeviceControls.to_u8().unwrap());
+            data.push(device); // device
+            send_packet(port, PacketType::Command, &data);
+
+            let packet = wait_for_packet(port);
+            println!("Packet: {:?}", packet);
+        }
+
+        SPCommand::GetDeviceLines { device } => {
+            let mut data = Vec::new();
+            data.push(SPCommands::GetDeviceLines.to_u8().unwrap());
+            data.push(device); // device
+            send_packet(port, PacketType::Command, &data);
+
+            let packet = wait_for_packet(port);
+            println!("Packet: {:?}", packet);
+        }
+    }
+}
+
+fn exec_ge_command(
+    _port: &mut Box<dyn serialport::SerialPort>,
+    _cmd: GECommand,
+) {
+    todo!()
+}
+
 fn run(port: &String, baudrate: u32, cmd: &str) {
     let mut port = serialport::new(port, baudrate).open().unwrap();
 
@@ -359,39 +429,12 @@ fn run(port: &String, baudrate: u32, cmd: &str) {
             }
         }
 
-        Command::SetDeviceControls { device, controls } => {
-            let mut data = Vec::new();
-            data.push(SPCommands::SetDeviceControls.to_u8().unwrap());
-            data.push(device); // device
-            data.push(controls);
-            send_packet(&mut port, PacketType::Command, &data);
-
-            let packet = wait_for_packet(&mut port);
-            match packet.response() {
-                Ok(_) => println!("Success"),
-                Err(error_code) => eprintln!("Error: {:?}", error_code),
+        Command::DeviceSpecific(device) => match device {
+            DeviceCommand::StarPlatinum(sp) => exec_sp_command(&mut port, sp),
+            DeviceCommand::GoldExperience(ge) => {
+                exec_ge_command(&mut port, ge)
             }
-        }
-
-        Command::GetDeviceControls { device } => {
-            let mut data = Vec::new();
-            data.push(SPCommands::GetDeviceControls.to_u8().unwrap());
-            data.push(device); // device
-            send_packet(&mut port, PacketType::Command, &data);
-
-            let packet = wait_for_packet(&mut port);
-            println!("Packet: {:?}", packet);
-        }
-
-        Command::GetDeviceLines { device } => {
-            let mut data = Vec::new();
-            data.push(SPCommands::GetDeviceLines.to_u8().unwrap());
-            data.push(device); // device
-            send_packet(&mut port, PacketType::Command, &data);
-
-            let packet = wait_for_packet(&mut port);
-            println!("Packet: {:?}", packet);
-        }
+        },
     }
 }
 
