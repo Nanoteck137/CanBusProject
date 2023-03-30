@@ -48,11 +48,11 @@ struct Config
 
     Device devices[MAX_DEVICES];
 
-    size_t num_inputs;
-    uint inputs[MAX_IO];
+    size_t num_controls;
+    uint controls[MAX_IO];
 
-    size_t num_outputs;
-    uint outputs[MAX_IO];
+    size_t num_lines;
+    uint lines[MAX_IO];
 };
 
 extern Config config;
