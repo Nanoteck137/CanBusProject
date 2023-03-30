@@ -1,5 +1,8 @@
 #include "serial_number.h"
 
+// NOTE(patrik): From
+// https://github.com/raspberrypi/picoprobe/blob/164eaa5b80295ff9ef3a8ebf8949d5db4699f904/src/get_serial.c
+
 char usb_serial_id[PICO_UNIQUE_BOARD_ID_SIZE_BYTES * 2 + 1];
 pico_unique_board_id_t id;
 
