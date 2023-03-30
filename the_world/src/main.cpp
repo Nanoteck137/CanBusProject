@@ -40,6 +40,7 @@ stdio_driver_t debug_driver = {
 void init_system()
 {
     serial_number_init();
+
     board_init();
     tusb_init();
 
@@ -47,8 +48,6 @@ void init_system()
     stdio_set_driver_enabled(&debug_driver, true);
 
     can_init();
-
-    // init_devices();
 }
 
 void usb_thread(void* ptr)
@@ -59,34 +58,6 @@ void usb_thread(void* ptr)
         vTaskDelay(1);
     } while (1);
 }
-
-// void test_thread(void* ptr)
-// {
-//     Device* device = devices + 0;
-//     bool last = (device->toggled_lines & 0x1) > 0;
-//     while (true)
-//     {
-//         bool current = (device->toggled_lines & 0x1) > 0;
-//
-//         if (current && last != current)
-//         {
-//             printf("On\n");
-//             device->controls = 0b1;
-//             device->need_update = true;
-//         }
-//
-//         if (!current && last != current)
-//         {
-//             printf("Off\n");
-//             device->controls = 0b0;
-//             device->need_update = true;
-//         }
-//
-//         last = current;
-//
-//         vTaskDelay(1);
-//     }
-// }
 
 static TaskHandle_t usb_thread_handle;
 static TaskHandle_t can_thread_handle;
