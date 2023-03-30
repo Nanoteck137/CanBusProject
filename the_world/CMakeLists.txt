@@ -15,8 +15,9 @@ pico_sdk_init()
 
 add_executable(the_world
 	src/main.cpp
-	src/serial_number.cpp
 	src/com.cpp
+	src/can.cpp
+	src/serial_number.cpp
 	src/usb_descriptors.c
 
 	${THIRD_PARTY_DIR}/pico-mcp2515/include/mcp2515/mcp2515.cpp
