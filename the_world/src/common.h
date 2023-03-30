@@ -18,18 +18,24 @@ struct Device
 {
     uint32_t index;
     uint32_t can_id;
+
+    uint32_t com_id() { return can_id + 0x00; }
+    uint32_t control_id() { return can_id + 0x01; }
+    uint32_t status_id() { return can_id + 0x02; }
+    uint32_t misc_id() { return can_id + 0x03; }
 };
 
 struct DeviceData
 {
     Device device;
 
-    // uint8_t controls;
-    // uint8_t lines;
-    // uint8_t toggled_lines;
+    uint8_t control_status;
 
-    uint32_t control_id() { return device.can_id + 0x01; }
-    uint32_t line_id() { return device.can_id + 0x02; }
+    uint8_t line_status;
+    uint8_t extra_line_status;
+
+    uint8_t toggled_line_status;
+    uint8_t toggled_extra_line_status;
 };
 
 struct Config
@@ -39,7 +45,6 @@ struct Config
     DeviceType type;
 
     uint32_t can_id;
-    bool has_can;
 
     Device devices[MAX_DEVICES];
 
@@ -50,27 +55,6 @@ struct Config
     uint outputs[MAX_IO];
 };
 
-const Config config = {
-    .name = "RSNav",
-    .version = MAKE_VERSION(0, 1, 0),
-    .type = DeviceType::StarPlatinum,
+extern Config config;
 
-    .can_id = 0x000,
-    .has_can = false,
-
-    .devices =
-        {
-            {
-                .index = 0,
-                .can_id = 0x100,
-            },
-        },
-
-    .num_inputs = 0,
-    .inputs = {},
-
-    .num_outputs = 0,
-    .outputs = {},
-};
-
-const DeviceData device_data[MAX_DEVICES] = {};
+extern DeviceData device_data[];

@@ -23,6 +23,8 @@
 #include "class/cdc/cdc_device.h"
 #include "tusb.h"
 
+DeviceData device_data[MAX_DEVICES];
+
 // const size_t NUM_DEVICES = 1;
 // static_assert(NUM_DEVICES <= MAX_DEVICES, "Too many devices");
 // static Device devices[NUM_DEVICES];
@@ -46,6 +48,11 @@ void init_system()
 
     stdio_uart_init();
     stdio_set_driver_enabled(&debug_driver, true);
+
+    for (int i = 0; i < NUM_DEVICES; i++)
+    {
+        device_data[i].device = config.devices[i];
+    }
 
     can_init();
 }

@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.13)
 
+include(CMakePrintHelpers)
+cmake_print_variables(CMAKE_CURRENT_BINARY_DIR)
+
 set(THIRD_PARTY_DIR ${CMAKE_CURRENT_LIST_DIR}/../third_party)
 set(FREERTOS_KERNEL_PATH ${THIRD_PARTY_DIR}/FreeRTOS-Kernel)
 set(TUSK_BINDINGS_PATH ${CMAKE_CURRENT_LIST_DIR}/../build/tusk/)
@@ -19,6 +22,8 @@ add_executable(the_world
 	src/can.cpp
 	src/serial_number.cpp
 	src/usb_descriptors.c
+
+	${CMAKE_CURRENT_BINARY_DIR}/gen.cpp
 
 	${THIRD_PARTY_DIR}/pico-mcp2515/include/mcp2515/mcp2515.cpp
 	)
