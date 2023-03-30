@@ -242,15 +242,19 @@ fn run_debug_monitor(port: &String, baudrate: u32) {
         .open()
         .unwrap();
 
+    let mut buf = [0; 1024];
     loop {
-        let mut buf = [0; 1];
-        if let Err(e) = port.read(&mut buf) {
-            if e.kind() == ErrorKind::TimedOut {
-                continue;
+        match port.read(&mut buf) {
+            Ok(n) => {
+                std::io::stdout().write(&buf[..n]).unwrap();
+            }
+
+            Err(e) => {
+                if e.kind() == ErrorKind::TimedOut {
+                    continue;
+                }
             }
         }
-
-        std::io::stdout().write(&buf).unwrap();
     }
 }
 
