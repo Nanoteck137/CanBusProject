@@ -28,6 +28,8 @@ pub enum ErrorCode {
     Unknown = 0x00,
     InvalidPacketType = 0x01,
     InvalidCommand = 0x02,
+    InvalidResponse = 0x03,
+    InvalidDevice = 0x04,
 }
 
 /// Device Types
