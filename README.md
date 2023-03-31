@@ -16,6 +16,7 @@ Create a custom Can Bus for a car
   - [ ] Can Bus
   - [ ] Communication
 - [ ] Create schematic for the devices
+- [ ] Functions on the canbus instead of controlling controls directly
 
 ## Devices
 

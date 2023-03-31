@@ -24,6 +24,7 @@ target_include_directories(the_hand PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../third_p
 target_link_libraries(the_hand PRIVATE
 	pico_stdlib
 	hardware_spi
+	hardware_pio
 	)
 
 pico_add_extra_outputs(the_hand)
