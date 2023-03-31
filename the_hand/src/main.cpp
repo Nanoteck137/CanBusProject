@@ -17,7 +17,9 @@
 
 void init_system() { stdio_init_all(); }
 
-#define PIN 19
+#define BUTTON0 19
+#define BUTTON1 20
+#define BUTTON2 21
 
 #define CONTROL0 16
 #define CONTROL1 17
@@ -42,9 +44,8 @@ class Button
 public:
     Button() : _lastTransition(time_us_64()), _state(StateIdle), _new(false){};
 
-    void update()
+    void update(bool pressed)
     {
-        bool pressed = !gpio_get(PIN);
         _new = false;
 
         // Optimization for the most common case: nothing happening.
@@ -236,15 +237,25 @@ int main()
     // uint lines[NUM_LINES] = {19, 20, 21};
     // LineState line_states[NUM_LINES] = {};
 
-    gpio_init(PIN);
-    gpio_set_dir(PIN, GPIO_IN);
-    gpio_set_pulls(PIN, true, false);
+    gpio_init(BUTTON0);
+    gpio_set_dir(BUTTON0, GPIO_IN);
+    gpio_set_pulls(BUTTON0, true, false);
+
+    gpio_init(BUTTON1);
+    gpio_set_dir(BUTTON1, GPIO_IN);
+    gpio_set_pulls(BUTTON1, true, false);
+
+    gpio_init(BUTTON2);
+    gpio_set_dir(BUTTON2, GPIO_IN);
+    gpio_set_pulls(BUTTON2, true, false);
 
     int index = 0;
 
     LineState line;
 
-    Button button;
+    Button b;
+    Button b1;
+    Button b2;
 
     bool control0 = false;
     bool control1 = false;
@@ -261,57 +272,29 @@ int main()
 
     while (true)
     {
-        button.update();
+        bool button0 = !gpio_get(BUTTON0);
+        bool button1 = !gpio_get(BUTTON1);
+        bool button2 = !gpio_get(BUTTON2);
 
-        if (button.isClick())
-        {
-            printf("isClick\n");
-        }
+        // b0
+        // b1
+        // b2
+        // b0 b1
+        // b0 b2
+        // b1 b2
+        // b0 b1 b2
 
-        if (button.isReleased())
-            printf("isReleased\n");
+        b.update(button0 && button1 && !button2);
+        b1.update(button0 && !button1);
+        b2.update(button0 && button1 && button2);
 
-        if (button.isSingleClick())
-        {
-            printf("isSingleClick\n");
-            control1 = !control1;
-            gpio_put(CONTROL1, control1);
-        }
+        if (b.isClick())
+            printf("Button 0\n");
 
-        if (button.isDoubleClick())
-        {
-            printf("isDoubleClick\n");
-            control2 = !control2;
-            gpio_put(CONTROL2, control2);
-        }
+        if (b1.isClick())
+            printf("Button 1\n");
 
-        if (button.isLongClick())
-        {
-            printf("isLongClick\n");
-            control0 = !control0;
-            gpio_put(CONTROL0, control0);
-        }
-
-        // uint32_t current_time = to_ms_since_boot(get_absolute_time());
-        //
-        // bool button = !gpio_get(PIN);
-        // if (button != line.last_button_state)
-        // {
-        //     line.debounce_timer = to_ms_since_boot(get_absolute_time());
-        // }
-        //
-        // if (current_time - line.debounce_timer > 100)
-        // {
-        //     line.state = button;
-        // }
-        //
-        // if (line.state && !line.last)
-        // {
-        //     printf("Wot %d\n", index);
-        //     index++;
-        // }
-        //
-        // line.last = line.state;
-        // line.last_button_state = button;
+        if (b2.isClick())
+            printf("Button 2\n");
     }
 }
