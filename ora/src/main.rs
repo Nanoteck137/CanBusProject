@@ -214,116 +214,140 @@ struct DeviceSpec {
 }
 
 fn main() {
-    spec::test();
-    panic!();
+    // spec::test();
 
     let args = Args::parse();
 
-    let s = {
-        let mut file =
-            File::open("spec.json").expect("Failed to open spec.json");
-
-        let mut s = String::new();
-        file.read_to_string(&mut s).unwrap();
-
-        s
-    };
-
-    let spec = serde_json::from_str::<Spec>(&s).unwrap();
-    println!("Spec: {:#?}", spec);
-
-    let mut devices = HashMap::new();
-
-    spec.sp.iter().for_each(|dev| {
-        let spec = DeviceSpec {
-            name: dev.name.clone(),
-            device_type: DeviceType::StarPlatinum,
-            can_id: 0,
-
-            devices: Vec::new(),
-
-            lines: Vec::new(),
-            controls: Vec::new(),
-        };
-
-        if devices.get(&dev.name).is_some() {
-            panic!("Duplicated device name: '{}'", dev.name);
-        }
-
-        devices.insert(dev.name.clone(), spec);
-    });
-
-    spec.ge.iter().for_each(|dev| {
-        let mut lines = Vec::new();
-        if let Some(l) = &dev.lines {
-            l.iter().for_each(|line| lines.push(line.pin));
-        }
-
-        let mut controls = Vec::new();
-        if let Some(c) = &dev.controls {
-            c.iter().for_each(|control| controls.push(control.pin));
-        }
-
-        assert_eq!(&dev.can_id[0..2], "0x");
-        // TODO(patrik): Remove unwrap
-        let can_id = u32::from_str_radix(&dev.can_id[2..], 16).unwrap();
-
-        let spec = DeviceSpec {
-            name: dev.name.clone(),
-            device_type: DeviceType::GoldExperience,
-            can_id,
-
-            devices: Vec::new(),
-
-            lines,
-            controls,
-        };
-
-        if devices.get(&dev.name).is_some() {
-            panic!("Duplicated device name: '{}'", dev.name);
-        }
-
-        devices.insert(dev.name.clone(), spec);
-    });
-
-    // Update references to devices
-
-    spec.sp.iter().for_each(|dev| {
-        for name in &dev.devices {
-            let can_id = devices.get(name).unwrap().can_id;
-            let dev = devices.get_mut(&dev.name).unwrap();
-            dev.devices.push(ConnectedDevice { can_id });
-        }
-    });
-
-    spec.ge.iter().for_each(|dev| {
-        for name in &dev.devices {
-            let can_id = devices.get(name).unwrap().can_id;
-            let dev = devices.get_mut(&dev.name).unwrap();
-            dev.devices.push(ConnectedDevice { can_id });
-        }
-    });
+    // let s = {
+    //     let mut file =
+    //         File::open("spec.json").expect("Failed to open spec.json");
+    //
+    //     let mut s = String::new();
+    //     file.read_to_string(&mut s).unwrap();
+    //
+    //     s
+    // };
+    //
+    // let spec = serde_json::from_str::<Spec>(&s).unwrap();
+    // println!("Spec: {:#?}", spec);
+    //
+    // let mut devices = HashMap::new();
+    //
+    // spec.sp.iter().for_each(|dev| {
+    //     let spec = DeviceSpec {
+    //         name: dev.name.clone(),
+    //         device_type: DeviceType::StarPlatinum,
+    //         can_id: 0,
+    //
+    //         devices: Vec::new(),
+    //
+    //         lines: Vec::new(),
+    //         controls: Vec::new(),
+    //     };
+    //
+    //     if devices.get(&dev.name).is_some() {
+    //         panic!("Duplicated device name: '{}'", dev.name);
+    //     }
+    //
+    //     devices.insert(dev.name.clone(), spec);
+    // });
+    //
+    // spec.ge.iter().for_each(|dev| {
+    //     let mut lines = Vec::new();
+    //     if let Some(l) = &dev.lines {
+    //         l.iter().for_each(|line| lines.push(line.pin));
+    //     }
+    //
+    //     let mut controls = Vec::new();
+    //     if let Some(c) = &dev.controls {
+    //         c.iter().for_each(|control| controls.push(control.pin));
+    //     }
+    //
+    //     assert_eq!(&dev.can_id[0..2], "0x");
+    //     // TODO(patrik): Remove unwrap
+    //     let can_id = u32::from_str_radix(&dev.can_id[2..], 16).unwrap();
+    //
+    //     let spec = DeviceSpec {
+    //         name: dev.name.clone(),
+    //         device_type: DeviceType::GoldExperience,
+    //         can_id,
+    //
+    //         devices: Vec::new(),
+    //
+    //         lines,
+    //         controls,
+    //     };
+    //
+    //     if devices.get(&dev.name).is_some() {
+    //         panic!("Duplicated device name: '{}'", dev.name);
+    //     }
+    //
+    //     devices.insert(dev.name.clone(), spec);
+    // });
+    //
+    // // Update references to devices
+    //
+    // spec.sp.iter().for_each(|dev| {
+    //     for name in &dev.devices {
+    //         let can_id = devices.get(name).unwrap().can_id;
+    //         let dev = devices.get_mut(&dev.name).unwrap();
+    //         dev.devices.push(ConnectedDevice { can_id });
+    //     }
+    // });
+    //
+    // spec.ge.iter().for_each(|dev| {
+    //     for name in &dev.devices {
+    //         let can_id = devices.get(name).unwrap().can_id;
+    //         let dev = devices.get_mut(&dev.name).unwrap();
+    //         dev.devices.push(ConnectedDevice { can_id });
+    //     }
+    // });
 
     match args.action {
         Action::Firmware {} => {
             generate_tusk_bindings();
 
-            for (_, device) in &devices {
-                let name = &device.name;
-                let build_path = format!("build/{}", name);
+            // for (_, device) in &devices {
+            //     let name = &device.name;
+            //     let build_path = format!("build/{}", name);
+            //
+            //     println!("---------------------------------------------");
+            //     println!("Building firmware for device: '{}'", name);
+            //     std::fs::create_dir_all(&build_path).unwrap();
+            //     println!("Generating gen.cpp");
+            //     generate_gen_file(&build_path, device);
+            //     println!("Running cmake");
+            //     generate_cmake_project("the_world", &build_path);
+            //     println!();
+            //     println!("Running make");
+            //     compile_with_make(&build_path);
+            //     println!("---------------------------------------------");
+            // }
 
-                println!("---------------------------------------------");
-                println!("Building firmware for device: '{}'", name);
-                std::fs::create_dir_all(&build_path).unwrap();
-                println!("Generating gen.cpp");
-                generate_gen_file(&build_path, device);
-                println!("Running cmake");
-                generate_cmake_project("the_world", &build_path);
-                println!();
-                println!("Running make");
-                compile_with_make(&build_path);
-                println!("---------------------------------------------");
-            }
+            let device = DeviceSpec {
+                name: "Test".to_string(),
+                device_type: DeviceType::GoldExperience,
+                can_id: 0x100,
+
+                devices: vec![],
+
+                lines: vec![13, 12],
+                controls: vec![14],
+            };
+            let name = &device.name;
+            let build_path = format!("build/{}", name);
+
+            println!("---------------------------------------------");
+            println!("Building firmware for device: '{}'", name);
+            std::fs::create_dir_all(&build_path).unwrap();
+            println!("Generating gen.cpp");
+            generate_gen_file(&build_path, &device);
+            println!("Running cmake");
+            generate_cmake_project("the_world", &build_path);
+            println!();
+            println!("Running make");
+            compile_with_make(&build_path);
+            println!("---------------------------------------------");
         }
 
         Action::TestFirmware {} => {
