@@ -55,6 +55,22 @@ void init_system()
     }
 
     can_init();
+
+    if (config.type == DeviceType::GoldExperience)
+    {
+        for (int i = 0; i < config.num_lines; i++)
+        {
+            gpio_init(config.lines[i]);
+            gpio_set_dir(config.lines[i], GPIO_IN);
+            gpio_set_pulls(config.lines[i], true, false);
+        }
+
+        for (int i = 0; i < config.num_controls; i++)
+        {
+            gpio_init(config.controls[i]);
+            gpio_set_dir(config.controls[i], GPIO_OUT);
+        }
+    }
 }
 
 void usb_thread(void* ptr)
