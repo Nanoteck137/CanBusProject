@@ -55,8 +55,8 @@ int main()
         uint64_t time = 0;
     };
 
-    const size_t NUM_INPUTS = 6;
-    uint inputs[NUM_INPUTS] = {15, 14, 13, 19, 20, 21};
+    const size_t NUM_INPUTS = 3;
+    uint inputs[NUM_INPUTS] = {19, 20, 21};
     InputState input_states[NUM_INPUTS];
 
     for (int i = 0; i < NUM_INPUTS; i++)
@@ -75,22 +75,23 @@ int main()
         for (int i = 0; i < NUM_INPUTS; i++)
         {
             bool res = gpio_get(inputs[i]);
+            gpio_put(outputs[i], !res);
             printf("%d, ", res);
         }
 
         printf("\n");
 
-        uint64_t current = time_us_64();
-        if (current - last > 1000 * 1000)
-        {
-            for (int i = 0; i < num_outputs; i++)
-            {
-                printf("Toggle\n");
-                gpio_put(outputs[i], value);
-            }
-            value = !value;
-            last = current;
-        }
+        // uint64_t current = time_us_64();
+        // if (current - last > 1000 * 1000)
+        // {
+        //     for (int i = 0; i < num_outputs; i++)
+        //     {
+        //         printf("Toggle\n");
+        //         gpio_put(outputs[i], value);
+        //     }
+        //     value = !value;
+        //     last = current;
+        // }
 
         // uint64_t current = time_us_64();
         //
