@@ -32,121 +32,95 @@ const uint32_t CONTROL_ID = DEVICE_ID + 0x01;
 const uint32_t LINE_ID = DEVICE_ID + 0x02;
 const uint32_t MISC_ID = DEVICE_ID + 0x03;
 
+struct LineState
+{
+    bool current;
+    bool last;
+    bool state;
+    bool toggle;
+
+    uint64_t debounce_timer;
+};
+
 int main()
 {
     init_system();
 
-    uint outputs[] = {16, 17, 18, PICO_DEFAULT_LED_PIN};
-    int num_outputs = sizeof(outputs) / sizeof(outputs[0]);
+    uint controls[] = {16, 17, 18, PICO_DEFAULT_LED_PIN};
+    int num_controls = sizeof(controls) / sizeof(controls[0]);
 
     // Initialize the outputs
-    for (int i = 0; i < num_outputs; i++)
+    for (int i = 0; i < num_controls; i++)
     {
-        gpio_init(outputs[i]);
-        gpio_set_dir(outputs[i], GPIO_OUT);
-        gpio_put(outputs[i], false);
+        gpio_init(controls[i]);
+        gpio_set_dir(controls[i], GPIO_OUT);
+        gpio_put(controls[i], false);
     }
 
-    struct InputState
-    {
-        bool current_value = false;
-        bool current_toggle_value = false;
-        bool last_value = false;
-        uint64_t time = 0;
-    };
+    const size_t NUM_LINES = 3;
+    uint lines[NUM_LINES] = {19, 20, 21};
+    LineState line_states[NUM_LINES] = {};
 
-    const size_t NUM_INPUTS = 3;
-    uint inputs[NUM_INPUTS] = {19, 20, 21};
-    InputState input_states[NUM_INPUTS];
-
-    for (int i = 0; i < NUM_INPUTS; i++)
+    for (int i = 0; i < NUM_LINES; i++)
     {
-        gpio_init(inputs[i]);
-        gpio_set_dir(inputs[i], GPIO_IN);
-        gpio_set_pulls(inputs[i], true, false);
+        gpio_init(lines[i]);
+        gpio_set_dir(lines[i], GPIO_IN);
+        gpio_set_pulls(lines[i], true, false);
     }
 
-    uint64_t last = time_us_64();
+    uint64_t last_time = time_us_64();
 
-    bool value = false;
+    uint32_t index = 0;
 
     while (true)
     {
-        for (int i = 0; i < NUM_INPUTS; i++)
+        for (int i = 0; i < NUM_LINES; i++)
         {
-            bool res = gpio_get(inputs[i]);
-            gpio_put(outputs[i], !res);
-            printf("%d, ", res);
+            LineState* state = line_states + i;
+            bool current = !gpio_get(lines[i]);
+            current = !gpio_get(lines[i]);
+            state->current = current;
         }
 
-        printf("\n");
+        uint64_t current_time = time_us_64();
 
-        // uint64_t current = time_us_64();
-        // if (current - last > 1000 * 1000)
-        // {
-        //     for (int i = 0; i < num_outputs; i++)
-        //     {
-        //         printf("Toggle\n");
-        //         gpio_put(outputs[i], value);
-        //     }
-        //     value = !value;
-        //     last = current;
-        // }
+        for (int i = 0; i < NUM_LINES; i++)
+        {
+            LineState* line = line_states + i;
+            if (line->current != line->last)
+                line->debounce_timer = current_time;
 
-        // uint64_t current = time_us_64();
-        //
-        // can_frame frame;
-        // if (can0.readMessage(&frame) == MCP2515::ERROR_OK)
-        // {
-        //     if (frame.can_id == CONTROL_ID && frame.can_dlc >= 1)
-        //     {
-        //         uint8_t controls = frame.data[0];
-        //
-        //         gpio_put(outputs[0], (controls & (1 << 0)) > 0);
-        //         gpio_put(outputs[1], (controls & (1 << 1)) > 0);
-        //         gpio_put(outputs[2], (controls & (1 << 2)) > 0);
-        //         gpio_put(outputs[3], (controls & (1 << 3)) > 0);
-        //     }
-        // }
-        //
-        // for (int i = 0; i < NUM_INPUTS; i++)
-        // {
-        //     InputState* state = input_states + i;
-        //     state->current_value = gpio_get(inputs[i]);
-        //     if (state->current_value == 0 &&
-        //         state->last_value != state->current_value &&
-        //         (current - state->time) > 200 * 1000)
-        //     {
-        //         state->current_toggle_value = !state->current_toggle_value;
-        //         state->time = current;
-        //     }
-        //
-        //     state->last_value = state->current_value;
-        // }
-        //
-        // if (current - last > 50 * 1000)
-        // {
-        //     uint8_t current_lines = 0;
-        //     uint8_t current_toggle_lines = 0;
-        //
-        //     for (int i = 0; i < NUM_INPUTS; i++)
-        //     {
-        //         InputState* state = input_states + i;
-        //         current_lines |= ((!state->current_value) << i);
-        //         current_toggle_lines |= (state->current_toggle_value << i);
-        //     }
-        //
-        //     // printf("Sending Line Message\n");
-        //     can_frame send;
-        //     send.can_id = LINE_ID;
-        //     send.can_dlc = 2;
-        //     send.data[0] = current_lines;        // CURRENT VALUES
-        //     send.data[1] = current_toggle_lines; // TOGGLED VALUES
-        //     if (can0.sendMessage(&send) != MCP2515::ERROR_OK)
-        //     {
-        //         printf("Error?\n");
-        //     }
-        //     last = current;
-        // }
+            if (current_time - line->debounce_timer > 50 * 1000)
+            {
+                if (line->current != line->state)
+                {
+                    line->state = line->current;
+
+                    if (line->state)
+                    {
+                        line->toggle = !line->toggle;
+                    }
+                }
+            }
+        }
+
+        if (current_time - last_time > 200 * 1000)
+        {
+            for (int i = 0; i < NUM_LINES; i++)
+            {
+                LineState* state = line_states + i;
+                printf("Line %d: C: %d L: %d\n", i, state->state,
+                       state->toggle);
+            }
+            printf("\n");
+
+            last_time = current_time;
+        }
+
+        for (int i = 0; i < NUM_LINES; i++)
+        {
+            LineState* state = line_states + i;
+            state->last = state->current;
+        }
     }
 }
