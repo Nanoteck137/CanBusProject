@@ -43,16 +43,6 @@ struct Config
     const char* name;
     uint16_t version;
     DeviceType type;
-
-    uint32_t can_id;
-
-    Device devices[MAX_DEVICES];
-
-    size_t num_controls;
-    uint controls[MAX_IO];
-
-    size_t num_lines;
-    uint lines[MAX_IO];
 };
 
 extern Config config;

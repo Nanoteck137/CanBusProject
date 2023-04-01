@@ -21,9 +21,7 @@ add_executable(the_world
 	src/com.cpp
 	src/can.cpp
 	src/serial_number.cpp
-	src/usb_descriptors.c
-
-	${CMAKE_CURRENT_BINARY_DIR}/gen.cpp
+	src/usb_descriptors.cpp
 
 	${THIRD_PARTY_DIR}/pico-mcp2515/include/mcp2515/mcp2515.cpp
 	)
@@ -36,8 +34,10 @@ target_link_libraries(the_world PRIVATE
 	pico_stdlib
 	pico_unique_id
 	hardware_spi
+
 	tinyusb_device
 	tinyusb_board
+
 	FreeRTOS-Kernel
 	FreeRTOS-Kernel-Heap2
 	)

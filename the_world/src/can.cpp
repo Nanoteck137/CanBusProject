@@ -32,45 +32,49 @@ void can_thread(void* ptr)
         {
             for (int i = 0; i < NUM_DEVICES; i++)
             {
-                DeviceData* data = &device_data[i];
-                Device* device = &data->device;
-
-                // TODO(patrik): If we get a status message we need to save it
-
-                if (frame.can_id == device->status_id() && frame.can_dlc == 5)
-                {
-                    // NOTE(patrik): Format
-                    // Byte 0 - Control Status
-                    // Byte 1 - Line Status
-                    // Byte 2 - Extra Line Status
-                    // Byte 3 - Toggled Line Status
-                    // Byte 4 - Toggled Extra Line Status
-
-                    uint8_t control_status = frame.data[0];
-
-                    uint8_t line_status = frame.data[1];
-                    uint8_t extra_line_status = frame.data[2];
-
-                    uint8_t toggled_line_status = frame.data[3];
-                    uint8_t toggled_extra_line_status = frame.data[4];
-
-                    data->control_status = control_status;
-
-                    data->line_status = line_status;
-                    data->extra_line_status = extra_line_status;
-
-                    data->toggled_line_status = toggled_line_status;
-                    data->toggled_extra_line_status = toggled_extra_line_status;
-
-                    // TODO(patrik): Here we need to update our controls if we
-                    // have a desire to do that
-
-                    printf("Status Update (0x%x): %x %x %x %x %x",
-                           device->can_id, data->control_status,
-                           data->line_status, data->extra_line_status,
-                           data->toggled_line_status,
-                           data->toggled_extra_line_status);
-                }
+                //     DeviceData* data = &device_data[i];
+                //     Device* device = &data->device;
+                //
+                //     // TODO(patrik): If we get a status message we need to
+                //     save it
+                //
+                //     if (frame.can_id == device->status_id() && frame.can_dlc
+                //     == 5)
+                //     {
+                //         // NOTE(patrik): Format
+                //         // Byte 0 - Control Status
+                //         // Byte 1 - Line Status
+                //         // Byte 2 - Extra Line Status
+                //         // Byte 3 - Toggled Line Status
+                //         // Byte 4 - Toggled Extra Line Status
+                //
+                //         uint8_t control_status = frame.data[0];
+                //
+                //         uint8_t line_status = frame.data[1];
+                //         uint8_t extra_line_status = frame.data[2];
+                //
+                //         uint8_t toggled_line_status = frame.data[3];
+                //         uint8_t toggled_extra_line_status = frame.data[4];
+                //
+                //         data->control_status = control_status;
+                //
+                //         data->line_status = line_status;
+                //         data->extra_line_status = extra_line_status;
+                //
+                //         data->toggled_line_status = toggled_line_status;
+                //         data->toggled_extra_line_status =
+                //         toggled_extra_line_status;
+                //
+                //         // TODO(patrik): Here we need to update our controls
+                //         if we
+                //         // have a desire to do that
+                //
+                //         printf("Status Update (0x%x): %x %x %x %x %x",
+                //                device->can_id, data->control_status,
+                //                data->line_status, data->extra_line_status,
+                //                data->toggled_line_status,
+                //                data->toggled_extra_line_status);
+                //     }
             }
         }
 

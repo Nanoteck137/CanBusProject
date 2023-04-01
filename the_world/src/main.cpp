@@ -23,7 +23,9 @@
 #include "class/cdc/cdc_device.h"
 #include "tusb.h"
 
-DeviceData device_data[MAX_DEVICES];
+Config config = {.name = "Testing Device",
+                 .version = MAKE_VERSION(0, 1, 0),
+                 .type = DeviceType::GoldExperience};
 
 // const size_t NUM_DEVICES = 1;
 // static_assert(NUM_DEVICES <= MAX_DEVICES, "Too many devices");
@@ -49,28 +51,28 @@ void init_system()
     stdio_uart_init();
     stdio_set_driver_enabled(&debug_driver, true);
 
-    for (int i = 0; i < NUM_DEVICES; i++)
-    {
-        device_data[i].device = config.devices[i];
-    }
-
-    can_init();
-
-    if (config.type == DeviceType::GoldExperience)
-    {
-        for (int i = 0; i < config.num_lines; i++)
-        {
-            gpio_init(config.lines[i]);
-            gpio_set_dir(config.lines[i], GPIO_IN);
-            gpio_set_pulls(config.lines[i], true, false);
-        }
-
-        for (int i = 0; i < config.num_controls; i++)
-        {
-            gpio_init(config.controls[i]);
-            gpio_set_dir(config.controls[i], GPIO_OUT);
-        }
-    }
+    // for (int i = 0; i < NUM_DEVICES; i++)
+    // {
+    //     device_data[i].device = config.devices[i];
+    // }
+    //
+    // can_init();
+    //
+    // if (config.type == DeviceType::GoldExperience)
+    // {
+    //     for (int i = 0; i < config.num_lines; i++)
+    //     {
+    //         gpio_init(config.lines[i]);
+    //         gpio_set_dir(config.lines[i], GPIO_IN);
+    //         gpio_set_pulls(config.lines[i], true, false);
+    //     }
+    //
+    //     for (int i = 0; i < config.num_controls; i++)
+    //     {
+    //         gpio_init(config.controls[i]);
+    //         gpio_set_dir(config.controls[i], GPIO_OUT);
+    //     }
+    // }
 }
 
 void usb_thread(void* ptr)
@@ -82,8 +84,17 @@ void usb_thread(void* ptr)
     } while (1);
 }
 
+void update_thread(void* ptr)
+{
+    while (true)
+    {
+        vTaskDelay(1);
+    }
+}
+
 static TaskHandle_t usb_thread_handle;
 static TaskHandle_t can_thread_handle;
+static TaskHandle_t update_thread_handle;
 static TaskHandle_t com_thread_handle;
 
 int main()
@@ -103,9 +114,8 @@ int main()
                 tskIDLE_PRIORITY + 4, &usb_thread_handle);
     xTaskCreate(can_thread, "Can Thread", configMINIMAL_STACK_SIZE, nullptr,
                 tskIDLE_PRIORITY + 3, &can_thread_handle);
-    // xTaskCreate(test_thread, "Test Thread", configMINIMAL_STACK_SIZE,
-    // nullptr,
-    //             tskIDLE_PRIORITY + 2, &can_bus_thread_handle);
+    xTaskCreate(update_thread, "Update Thread", configMINIMAL_STACK_SIZE,
+                nullptr, tskIDLE_PRIORITY + 2, &update_thread_handle);
     xTaskCreate(com_thread, "COM Thread", configMINIMAL_STACK_SIZE, nullptr,
                 tskIDLE_PRIORITY + 1, &com_thread_handle);
 
