@@ -5,9 +5,10 @@
 
 #include "common.h"
 
-#include "serial_number.h"
 #include "com.h"
 #include "can.h"
+
+#include "util/serial_number.h"
 
 #include "tusk.h"
 
@@ -26,10 +27,6 @@
 Config config = {.name = "Testing Device",
                  .version = MAKE_VERSION(0, 1, 0),
                  .type = DeviceType::GoldExperience};
-
-// const size_t NUM_DEVICES = 1;
-// static_assert(NUM_DEVICES <= MAX_DEVICES, "Too many devices");
-// static Device devices[NUM_DEVICES];
 
 static void debug_driver_output(const char* buf, int length)
 {

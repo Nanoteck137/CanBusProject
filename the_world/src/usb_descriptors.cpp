@@ -25,7 +25,7 @@
 
 #include "tusb.h"
 
-#include "serial_number.h"
+#include "util/serial_number.h"
 
 /* A combination of interfaces must have a unique product id, since PC will save
  * device driver after the first plug. Same VID/PID with different interface e.g

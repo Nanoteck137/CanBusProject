@@ -20,8 +20,9 @@ add_executable(the_world
 	src/main.cpp
 	src/com.cpp
 	src/can.cpp
-	src/serial_number.cpp
 	src/usb_descriptors.cpp
+
+	src/util/serial_number.cpp
 
 	${THIRD_PARTY_DIR}/pico-mcp2515/include/mcp2515/mcp2515.cpp
 	)
