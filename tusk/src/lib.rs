@@ -18,13 +18,6 @@ pub enum PacketType {
 
 #[derive(Copy, Clone, Primitive, PartialEq, Debug)]
 #[repr(u8)]
-pub enum ResponseType {
-    Success = 0x00,
-    Err = 0x01,
-}
-
-#[derive(Copy, Clone, Primitive, PartialEq, Debug)]
-#[repr(u8)]
 pub enum ErrorCode {
     Success = 0x00,
     Unknown = 0x01,
@@ -41,21 +34,4 @@ pub enum ErrorCode {
 pub enum DeviceType {
     StarPlatinum = 0x00,
     GoldExperience = 0x01,
-}
-
-/// Commands for Star Platinum (SP) Devices
-#[derive(Copy, Clone, Primitive, PartialEq, Debug)]
-#[repr(u8)]
-pub enum SPCommands {
-    Configure = 0x00,
-    SetDeviceControls = 0x01,
-    GetDeviceControls = 0x02,
-    GetDeviceLines = 0x03,
-}
-
-/// Commands for Gold Experience (GE) Devices
-#[derive(Copy, Clone, Primitive, PartialEq, Debug)]
-#[repr(u8)]
-pub enum GECommands {
-    Empty = 0x00,
 }
