@@ -25,6 +25,9 @@ struct StatusLight
     void toggle();
 
 private:
+    void set_state(StatusLightState new_state);
+
+private:
     uint32_t m_pin = 0xffffffff;
     StatusLightState m_state = StatusLightState::Off;
     bool m_state_changed = false;

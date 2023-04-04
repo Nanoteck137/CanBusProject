@@ -72,46 +72,41 @@ void StatusLight::update()
 
 void StatusLight::blink(uint64_t blink_time)
 {
-    m_state = StatusLightState::Blink;
+    set_state(StatusLightState::Blink);
     m_blink_time = blink_time;
 }
 
 void StatusLight::blink_toggle(uint64_t blink_time)
 {
     if (m_state == StatusLightState::Blink)
-        m_state = StatusLightState::Off;
+        off();
     else
         blink(blink_time);
 }
 
 void StatusLight::blink_count(uint64_t blink_time, uint32_t blink_count)
 {
-    m_state = StatusLightState::BlinkCount;
+    set_state(StatusLightState::BlinkCount);
     m_blink_time = blink_time;
     m_blink_count = blink_count;
     m_current_blink_count = 0;
 }
 
-void StatusLight::on()
-{
-    m_state = StatusLightState::On;
-    m_state_changed = true;
-}
+void StatusLight::on() { set_state(StatusLightState::On); }
 
-void StatusLight::off()
-{
-    m_state = StatusLightState::On;
-    m_state_changed = true;
-}
+void StatusLight::off() { set_state(StatusLightState::Off); }
 
 void StatusLight::toggle()
 {
-    if (m_state == StatusLightState::Off)
-        m_state = StatusLightState::On;
-    else if (m_state == StatusLightState::On)
-        m_state = StatusLightState::Off;
-    else
-        m_state = StatusLightState::On;
+    switch (m_state)
+    {
+        case StatusLightState::On: off();
+        default: on();
+    }
+}
 
+void StatusLight::set_state(StatusLightState new_state)
+{
+    m_state = new_state;
     m_state_changed = true;
 }
