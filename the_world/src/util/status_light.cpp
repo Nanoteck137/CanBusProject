@@ -5,7 +5,7 @@
 
 void StatusLight::init(uint32_t pin)
 {
-    this->pin = pin;
+    m_pin = pin;
 
     gpio_init(pin);
     gpio_set_dir(pin, GPIO_OUT);
@@ -16,53 +16,51 @@ void StatusLight::update()
 {
     uint32_t current_time = time_us_64();
 
-    if (state_changed)
+    if (m_state_changed)
     {
-        switch (state)
+        switch (m_state)
         {
-            case StatusLightState::On: gpio_put(pin, true); break;
-            case StatusLightState::Off: gpio_put(pin, false); break;
+            case StatusLightState::On: gpio_put(m_pin, true); break;
+            case StatusLightState::Off: gpio_put(m_pin, false); break;
 
             case StatusLightState::Blink:
             case StatusLightState::BlinkCount: {
-                last_time = current_time;
-                gpio_put(pin, false);
+                m_last_time = current_time;
+                gpio_put(m_pin, false);
             }
             break;
         }
 
-        state_changed = false;
+        m_state_changed = false;
     }
 
-    switch (state)
+    switch (m_state)
     {
         case StatusLightState::Blink: {
-            if (current_time - last_time > blink_time)
+            if (current_time - m_last_time > m_blink_time)
             {
-                blink_value = !blink_value;
-                gpio_put(pin, blink_value);
-                last_time = current_time;
+                m_blink_value = !m_blink_value;
+                gpio_put(m_pin, m_blink_value);
+                m_last_time = current_time;
             }
         }
 
         case StatusLightState::BlinkCount: {
-            if (current_time - last_time > blink_time)
+            if (current_time - m_last_time > m_blink_time)
             {
-                if (current_blink_count >= blink_count)
+                if (m_current_blink_count >= m_blink_count)
                 {
-                    gpio_put(pin, false);
+                    gpio_put(m_pin, false);
                 }
                 else
                 {
-                    blink_value = !blink_value;
-                    gpio_put(pin, blink_value);
-                    printf("Before: %d\n", current_blink_count);
-                    if (blink_value)
-                        current_blink_count++;
-                    printf("After: %d\n", current_blink_count);
+                    m_blink_value = !m_blink_value;
+                    gpio_put(m_pin, m_blink_value);
+                    if (m_blink_value)
+                        m_current_blink_count++;
                 }
 
-                last_time = current_time;
+                m_last_time = current_time;
             }
         }
 
@@ -72,36 +70,48 @@ void StatusLight::update()
     }
 }
 
-void StatusLight::set_blink(uint64_t blink_time)
+void StatusLight::blink(uint64_t blink_time)
 {
-    state = StatusLightState::Blink;
-    this->blink_time = blink_time;
+    m_state = StatusLightState::Blink;
+    m_blink_time = blink_time;
 }
 
-void StatusLight::set_blink_toggle(uint64_t blink_time)
+void StatusLight::blink_toggle(uint64_t blink_time)
 {
-    if (state == StatusLightState::Blink)
-        state = StatusLightState::Off;
+    if (m_state == StatusLightState::Blink)
+        m_state = StatusLightState::Off;
     else
-        set_blink(blink_time);
+        blink(blink_time);
 }
 
-void StatusLight::set_blink_count(uint64_t blink_time, uint32_t blink_count)
+void StatusLight::blink_count(uint64_t blink_time, uint32_t blink_count)
 {
-    state = StatusLightState::BlinkCount;
-    this->blink_time = blink_time;
-    this->blink_count = blink_count;
-    this->current_blink_count = 0;
+    m_state = StatusLightState::BlinkCount;
+    m_blink_time = blink_time;
+    m_blink_count = blink_count;
+    m_current_blink_count = 0;
 }
 
-void StatusLight::set_toggle_on_off()
+void StatusLight::on()
 {
-    if (state == StatusLightState::Off)
-        state = StatusLightState::On;
-    else if (state == StatusLightState::On)
-        state = StatusLightState::Off;
+    m_state = StatusLightState::On;
+    m_state_changed = true;
+}
+
+void StatusLight::off()
+{
+    m_state = StatusLightState::On;
+    m_state_changed = true;
+}
+
+void StatusLight::toggle()
+{
+    if (m_state == StatusLightState::Off)
+        m_state = StatusLightState::On;
+    else if (m_state == StatusLightState::On)
+        m_state = StatusLightState::Off;
     else
-        state = StatusLightState::On;
+        m_state = StatusLightState::On;
 
-    state_changed = true;
+    m_state_changed = true;
 }

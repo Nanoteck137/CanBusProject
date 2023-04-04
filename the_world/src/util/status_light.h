@@ -12,25 +12,26 @@ enum class StatusLightState
 
 struct StatusLight
 {
-    uint32_t pin = 0xffffffff;
-    StatusLightState state = StatusLightState::Off;
-    bool state_changed = false;
-
-    uint64_t last_time = 0;
-    uint64_t blink_time = 0;
-    uint32_t blink_count = 0;
-    uint32_t current_blink_count = 0;
-    bool blink_value = false;
-
     void init(uint32_t pin);
 
     void update();
 
-    void set_blink(uint64_t blink_time);
-    void set_blink_toggle(uint64_t blink_time);
-    void set_blink_count(uint64_t blink_time, uint32_t blink_count);
+    void blink(uint64_t blink_time);
+    void blink_toggle(uint64_t blink_time);
+    void blink_count(uint64_t blink_time, uint32_t blink_count);
 
-    // void on();
-    // void off();
-    void set_toggle_on_off();
+    void on();
+    void off();
+    void toggle();
+
+private:
+    uint32_t m_pin = 0xffffffff;
+    StatusLightState m_state = StatusLightState::Off;
+    bool m_state_changed = false;
+
+    uint64_t m_last_time = 0;
+    uint64_t m_blink_time = 0;
+    uint32_t m_blink_count = 0;
+    uint32_t m_current_blink_count = 0;
+    bool m_blink_value = false;
 };

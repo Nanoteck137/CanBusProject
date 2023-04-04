@@ -182,7 +182,7 @@ void update_thread(void* ptr)
 
         if (context.right.is_double_click())
         {
-            // context.right_status.set_blink_count();
+            context.right_status.blink_toggle(250 * 1000);
         }
 
         // bool left_state = !gpio_get(lines[0]);
