@@ -30,7 +30,7 @@ void can_thread(void* ptr)
         can_frame frame;
         if (can0.readMessage(&frame) == MCP2515::ERROR_OK)
         {
-            for (int i = 0; i < NUM_DEVICES; i++)
+            // for (int i = 0; i < NUM_DEVICES; i++)
             {
                 //     DeviceData* data = &device_data[i];
                 //     Device* device = &data->device;

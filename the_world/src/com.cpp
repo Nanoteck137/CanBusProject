@@ -149,20 +149,21 @@ void send_error(ErrorCode error_code)
 
 void identify()
 {
-    uint8_t buffer[2 + 1 + 32] = {0};
-
-    // Version
-    buffer[0] = config.version & 0xff;
-    buffer[1] = (config.version >> 8) & 0xff;
-
-    // Type
-    buffer[2] = (uint8_t)config.type;
-
-    // Name
-    // TODO(patrik): Check for string length is not over 32
-    memcpy(buffer + 3, config.name, strlen(config.name));
-
-    send_success(buffer, sizeof(buffer));
+    // TODO(patriK): Fix
+    // uint8_t buffer[2 + 1 + 32] = {0};
+    //
+    // // Version
+    // buffer[0] = config.version & 0xff;
+    // buffer[1] = (config.version >> 8) & 0xff;
+    //
+    // // Type
+    // buffer[2] = (uint8_t)config.type;
+    //
+    // // Name
+    // // TODO(patrik): Check for string length is not over 32
+    // memcpy(buffer + 3, config.name, strlen(config.name));
+    //
+    // send_success(buffer, sizeof(buffer));
 }
 
 void command()
@@ -181,11 +182,12 @@ void command()
             uint8_t device_index = read_u8_from_data();
             uint8_t controls = read_u8_from_data();
 
-            if (device_index >= NUM_DEVICES)
-            {
-                send_error(ErrorCode::InvalidDevice);
-                return;
-            }
+            // TODO(patriK): Fix
+            // if (device_index >= NUM_DEVICES)
+            // {
+            //     send_error(ErrorCode::InvalidDevice);
+            //     return;
+            // }
 
             // Device* device = &devices[device_index];
             // device->controls = controls;
@@ -201,11 +203,12 @@ void command()
         case SPCommands::GetDeviceControls: {
             uint8_t device_index = read_u8_from_data();
 
-            if (device_index >= NUM_DEVICES)
-            {
-                send_error(ErrorCode::InvalidDevice);
-                return;
-            }
+            // TODO(patriK): Fix
+            // if (device_index >= NUM_DEVICES)
+            // {
+            //     send_error(ErrorCode::InvalidDevice);
+            //     return;
+            // }
 
             // Device* device = devices + device_index;
             // uint8_t controls = device->controls;
@@ -219,11 +222,12 @@ void command()
         case SPCommands::GetDeviceLines: {
             uint8_t device_index = read_u8_from_data();
 
-            if (device_index >= NUM_DEVICES)
-            {
-                send_error(ErrorCode::InvalidDevice);
-                return;
-            }
+            // TODO(patrik): Fix
+            // if (device_index >= NUM_DEVICES)
+            // {
+            //     send_error(ErrorCode::InvalidDevice);
+            //     return;
+            // }
 
             // Device* device = devices + device_index;
             // uint8_t lines = device->lines;

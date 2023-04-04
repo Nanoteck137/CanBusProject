@@ -20,7 +20,10 @@ add_executable(the_world
 	src/main.cpp
 	src/com.cpp
 	src/can.cpp
+	src/device.cpp
 	src/usb_descriptors.cpp
+
+	src/test.cpp
 
 	src/util/serial_number.cpp
 	src/util/status_light.cpp

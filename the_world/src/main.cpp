@@ -7,6 +7,7 @@
 
 #include "com.h"
 #include "can.h"
+#include "device.h"
 
 #include "util/serial_number.h"
 #include "util/status_light.h"
@@ -25,10 +26,6 @@
 #include "bsp/board.h"
 #include "class/cdc/cdc_device.h"
 #include "tusb.h"
-
-Config config = {.name = "Testing Device",
-                 .version = MAKE_VERSION(0, 1, 0),
-                 .type = DeviceType::GoldExperience};
 
 static void debug_driver_output(const char* buf, int length)
 {
@@ -95,190 +92,43 @@ DEFINE_FUNC(toggle_control)
     return ErrorCode::Success;
 }
 
-class PhysicalLine
-{
-public:
-    void init(uint32_t pin);
-
-    bool get();
-
-private:
-    uint32_t m_pin = 0xffffffff;
-};
-
-void PhysicalLine::init(uint32_t pin)
-{
-    m_pin = pin;
-
-    gpio_init(m_pin);
-    gpio_set_dir(m_pin, GPIO_IN);
-    gpio_pull_up(m_pin);
-}
-
-bool PhysicalLine::get() { return !gpio_get(m_pin); }
-
-class PhysicalControl
-{
-public:
-    void init(uint32_t pin);
-
-    void set(bool on);
-    void toggle();
-
-    bool get() const { return m_is_on; }
-
-private:
-    uint32_t m_pin = 0xffffffff;
-    bool m_is_on = false;
-};
-
-void PhysicalControl::init(uint32_t pin)
-{
-    m_pin = pin;
-
-    gpio_init(pin);
-    gpio_set_dir(pin, GPIO_OUT);
-    gpio_put(pin, false);
-}
-
-void PhysicalControl::set(bool on)
-{
-    m_is_on = on;
-    gpio_put(m_pin, m_is_on);
-}
-
-void PhysicalControl::toggle() { set(!m_is_on); }
-
-const size_t MAX_LINES = 16;
-const size_t MAX_CONTROLS = 16;
-
-const uint32_t LEFT_BUTTON_LINE = 10;
-const uint32_t MIDDLE_BUTTON_LINE = 11;
-const uint32_t RIGHT_BUTTON_LINE = 12;
-
-const uint32_t LEFT_BUTTON_STATUS_LIGHT = 5;
-const uint32_t MIDDLE_BUTTON_STATUS_LIGHT = 7;
-const uint32_t RIGHT_BUTTON_STATUS_LIGHT = 8;
-
-const size_t NUM_PHYSICAL_CONTROLS = 3;
-const size_t NUM_PHYSICAL_LINES = 6;
-
-struct DeviceContext
-{
-    PhysicalLine lines[MAX_LINES];
-    PhysicalControl controls[MAX_CONTROLS];
-};
-
-struct DeviceSpec
-{
-    const char* name;
-    uint16_t version;
-    DeviceType type;
-
-    size_t num_lines;
-    uint32_t lines[MAX_LINES];
-
-    size_t num_controls;
-    uint32_t controls[MAX_CONTROLS];
-};
-
-const DeviceSpec spec = {
-    .name = "Back Controller",
-    .version = MAKE_VERSION(0, 1, 0),
-    .type = DeviceType::GoldExperience,
-
-    .num_lines = 6,
-    .lines = {10, 11, 12, 19, 20, 21},
-
-    .num_controls = 6,
-    .controls = {5, 7, 8, 16, 17, 18},
-};
-
-struct TestContext
-{
-    Button left;
-    Button middle;
-    Button right;
-    Button left_middle;
-    Button middle_right;
-    Button left_right;
-
-    // StatusLight left_status;
-    // StatusLight middle_status;
-    // StatusLight right_status;
-
-    void init()
-    {
-        // left_status.init(LEFT_BUTTON_STATUS_LIGHT);
-        // middle_status.init(MIDDLE_BUTTON_STATUS_LIGHT);
-        // right_status.init(RIGHT_BUTTON_STATUS_LIGHT);
-    }
-
-    void update(DeviceContext* device)
-    {
-        bool left_line_state = device->lines[0].get();
-        bool middle_line_state = device->lines[1].get();
-        bool right_line_state = device->lines[2].get();
-
-        left.update(left_line_state && !middle_line_state && !right_line_state);
-        middle.update(middle_line_state && !left_line_state &&
-                      !right_line_state);
-        right.update(right_line_state && !left_line_state &&
-                     !middle_line_state);
-
-        left_middle.update(left_line_state && middle_line_state);
-        middle_right.update(middle_line_state && right_line_state);
-        left_right.update(left_line_state && right_line_state);
-
-        // left_status.update();
-        // middle_status.update();
-        // right_status.update();
-    }
-};
-
-void button_test(const char* name, Button* button)
-{
-    if (button->is_click())
-        printf("%s: Click\n", name);
-    if (button->is_released())
-        printf("%s: Released\n", name);
-
-    if (button->is_single_click())
-        printf("%s: Single click\n", name);
-    if (button->is_long_click())
-        printf("%s: Long click\n", name);
-    if (button->is_double_click())
-        printf("%s: Double click\n", name);
-}
+// const uint32_t LEFT_BUTTON_LINE = 10;
+// const uint32_t MIDDLE_BUTTON_LINE = 11;
+// const uint32_t RIGHT_BUTTON_LINE = 12;
+//
+// const uint32_t LEFT_BUTTON_STATUS_LIGHT = 5;
+// const uint32_t MIDDLE_BUTTON_STATUS_LIGHT = 7;
+// const uint32_t RIGHT_BUTTON_STATUS_LIGHT = 8;
+//
+// const size_t NUM_PHYSICAL_CONTROLS = 3;
+// const size_t NUM_PHYSICAL_LINES = 6;
 
 void update_thread(void* ptr)
 {
-    DeviceContext* device_context = (DeviceContext*)ptr;
-
-    TestContext context;
-    context.init();
+    DeviceContext* device = (DeviceContext*)ptr;
+    // init(device);
+    spec.init(device);
 
     while (true)
     {
-        context.update(device_context);
+        spec.update(device);
+        // button_test("Left", &context.left);
+        // button_test("Middle", &context.middle);
+        // button_test("Right", &context.right);
+        //
+        // button_test("Left Middle", &context.left_middle);
+        // button_test("Middle Right", &context.middle_right);
+        // button_test("Left Right", &context.left_right);
 
-        button_test("Left", &context.left);
-        button_test("Middle", &context.middle);
-        button_test("Right", &context.right);
-
-        button_test("Left Middle", &context.left_middle);
-        button_test("Middle Right", &context.middle_right);
-        button_test("Left Right", &context.left_right);
-
-        if (context.right.is_single_click())
-        {
-            for (int i = 0; i < spec.num_controls; i++)
-            {
-                device_context->controls[i].toggle();
-            }
-
-            // context.right_status.blink_toggle(250 * 1000);
-        }
+        // if (context.right.is_single_click())
+        // {
+        //     for (int i = 0; i < spec.num_controls; i++)
+        //     {
+        //         device_context->controls[i].toggle();
+        //     }
+        //
+        //     // context.right_status.blink_toggle(250 * 1000);
+        // }
 
         vTaskDelay(1);
     }
@@ -298,13 +148,13 @@ void init_device(DeviceContext* context)
         context->controls[i].init(spec.controls[i]);
 }
 
-static DeviceContext context;
+static DeviceContext device_context;
 
 int main()
 {
     init_system();
 
-    init_device(&context);
+    init_device(&device_context);
 
     // SP Device:
     //  - COM
@@ -320,7 +170,7 @@ int main()
     // xTaskCreate(can_thread, "Can Thread", configMINIMAL_STACK_SIZE, nullptr,
     //             tskIDLE_PRIORITY + 3, &can_thread_handle);
     xTaskCreate(update_thread, "Update Thread", configMINIMAL_STACK_SIZE,
-                &context, tskIDLE_PRIORITY + 2, &update_thread_handle);
+                &device_context, tskIDLE_PRIORITY + 2, &update_thread_handle);
     // xTaskCreate(com_thread, "COM Thread", configMINIMAL_STACK_SIZE, nullptr,
     //             tskIDLE_PRIORITY + 1, &com_thread_handle);
 
