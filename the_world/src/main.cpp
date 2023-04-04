@@ -95,6 +95,60 @@ DEFINE_FUNC(toggle_control)
     return ErrorCode::Success;
 }
 
+class PhysicalLine
+{
+public:
+    void init(uint32_t pin);
+
+    bool get();
+
+private:
+    uint32_t m_pin = 0xffffffff;
+};
+
+void PhysicalLine::init(uint32_t pin)
+{
+    m_pin = pin;
+
+    gpio_init(m_pin);
+    gpio_set_dir(m_pin, GPIO_IN);
+    gpio_pull_up(m_pin);
+}
+
+bool PhysicalLine::get() { return !gpio_get(m_pin); }
+
+class PhysicalControl
+{
+public:
+    void init(uint32_t pin);
+
+    void set(bool on);
+    void toggle();
+
+    bool get() const { return m_is_on; }
+
+private:
+    uint32_t m_pin = 0xffffffff;
+    bool m_is_on = false;
+};
+
+void PhysicalControl::init(uint32_t pin)
+{
+    m_pin = pin;
+
+    gpio_init(pin);
+    gpio_set_dir(pin, GPIO_OUT);
+    gpio_put(pin, false);
+}
+
+void PhysicalControl::set(bool on)
+{
+    m_is_on = on;
+    gpio_put(m_pin, m_is_on);
+}
+
+void PhysicalControl::toggle() { set(!m_is_on); }
+
 const uint32_t LEFT_BUTTON_LINE = 10;
 const uint32_t MIDDLE_BUTTON_LINE = 11;
 const uint32_t RIGHT_BUTTON_LINE = 12;
@@ -103,8 +157,17 @@ const uint32_t LEFT_BUTTON_STATUS_LIGHT = 5;
 const uint32_t MIDDLE_BUTTON_STATUS_LIGHT = 7;
 const uint32_t RIGHT_BUTTON_STATUS_LIGHT = 8;
 
-struct Context
+const size_t NUM_PHYSICAL_CONTROLS = 3;
+const size_t NUM_PHYSICAL_LINES = 6;
+
+struct TestContext
 {
+    uint32_t physical_control_pins[NUM_PHYSICAL_CONTROLS] = {16, 17, 18};
+    PhysicalControl physical_controls[NUM_PHYSICAL_CONTROLS];
+
+    uint32_t physical_line_pins[NUM_PHYSICAL_LINES] = {10, 11, 12, 19, 20, 21};
+    PhysicalLine physical_lines[NUM_PHYSICAL_LINES];
+
     Button left;
     Button middle;
     Button right;
@@ -116,18 +179,13 @@ struct Context
     StatusLight middle_status;
     StatusLight right_status;
 
-    void setup_line(uint32_t pin)
-    {
-        gpio_init(pin);
-        gpio_set_dir(pin, GPIO_IN);
-        gpio_pull_up(pin);
-    }
-
     void init()
     {
-        setup_line(LEFT_BUTTON_LINE);
-        setup_line(MIDDLE_BUTTON_LINE);
-        setup_line(RIGHT_BUTTON_LINE);
+        for (int i = 0; i < NUM_PHYSICAL_LINES; i++)
+            physical_lines[i].init(physical_line_pins[i]);
+
+        for (int i = 0; i < NUM_PHYSICAL_CONTROLS; i++)
+            physical_controls[i].init(physical_control_pins[i]);
 
         left_status.init(LEFT_BUTTON_STATUS_LIGHT);
         middle_status.init(MIDDLE_BUTTON_STATUS_LIGHT);
@@ -136,9 +194,9 @@ struct Context
 
     void update()
     {
-        bool left_line_state = !gpio_get(LEFT_BUTTON_LINE);
-        bool middle_line_state = !gpio_get(MIDDLE_BUTTON_LINE);
-        bool right_line_state = !gpio_get(RIGHT_BUTTON_LINE);
+        bool left_line_state = physical_lines[0].get();
+        bool middle_line_state = physical_lines[1].get();
+        bool right_line_state = physical_lines[2].get();
 
         left.update(left_line_state && !middle_line_state && !right_line_state);
         middle.update(middle_line_state && !left_line_state &&
@@ -173,7 +231,7 @@ void button_test(const char* name, Button* button)
 
 void update_thread(void* ptr)
 {
-    Context context;
+    TestContext context;
     context.init();
 
     while (true)
@@ -189,7 +247,14 @@ void update_thread(void* ptr)
         button_test("Left Right", &context.left_right);
 
         if (context.right.is_double_click())
+        {
+            for (int i = 0; i < NUM_PHYSICAL_CONTROLS; i++)
+            {
+                context.physical_controls[i].toggle();
+            }
+
             context.right_status.blink_toggle(250 * 1000);
+        }
 
         vTaskDelay(1);
     }
