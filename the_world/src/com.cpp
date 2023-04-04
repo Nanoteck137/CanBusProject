@@ -99,11 +99,16 @@ Packet parse_packet()
     return packet;
 }
 
-void send_packet(PacketType type, uint8_t* data, uint8_t len)
+void write_packet_header(PacketType type)
 {
     write_u8(PACKET_START);
     write_u8(0);
     write_u8((uint8_t)type);
+}
+
+void send_packet(PacketType type, uint8_t* data, uint8_t len)
+{
+    write_packet_header(type);
 
     // Data Length
     if (data && len > 0)
@@ -122,32 +127,31 @@ void send_packet(PacketType type, uint8_t* data, uint8_t len)
     tud_cdc_n_write_flush(PORT_CMD);
 }
 
+void send_packet_response(ErrorCode error_code, uint8_t* data, size_t len)
+{
+    write_packet_header(PacketType::Response);
+
+    // NOTE(patrik): Length of data + error code
+    write_u8(len + 1);
+    write_u8((uint8_t)error_code);
+
+    // Data Length
+    if (data && len > 0)
+    {
+        write(data, len);
+    }
+
+    // Checksum
+    write_u16(0);
+
+    tud_cdc_n_write_flush(PORT_CMD);
+}
+
 void send_empty_packet(PacketType type) { send_packet(type, nullptr, 0); }
 
 static bool send_updates = false;
 
 static uint8_t temp[256];
-
-void send_success(uint8_t* data, uint8_t len)
-{
-    // TODO(patrik): Check len
-    temp[0] = (uint8_t)ResponseType::Success;
-    uint8_t data_length = 1;
-
-    if (data && len > 0)
-    {
-        memcpy(temp + 1, data, len);
-        data_length += len;
-    }
-
-    send_packet(PacketType::Response, temp, data_length);
-}
-
-void send_error(ErrorCode error_code)
-{
-    uint8_t data[] = {(uint8_t)ResponseType::Err, (uint8_t)error_code};
-    send_packet(PacketType::Response, data, sizeof(data));
-}
 
 void identify()
 {
@@ -165,7 +169,7 @@ void identify()
     // TODO(patrik): Check for string length is not over 32
     memcpy(buffer + 3, spec.name, strlen(spec.name));
 
-    send_success(buffer, sizeof(buffer));
+    send_packet_response(ErrorCode::Success, buffer, sizeof(buffer));
 }
 
 void status()
@@ -175,12 +179,12 @@ void status()
 
     spec.get_status(buffer);
 
-    send_success(buffer, sizeof(buffer));
+    send_packet_response(ErrorCode::Success, buffer, sizeof(buffer));
 }
 
-void func() { send_error(ErrorCode::Unknown); }
+void func() { send_packet_response(ErrorCode::Unknown, nullptr, 0); }
 
-void ping() { send_success(nullptr, 0); }
+void ping() { send_packet_response(ErrorCode::Success, nullptr, 0); }
 
 void handle_packets()
 {
@@ -198,7 +202,10 @@ void handle_packets()
                 case PacketType::ExecFunc: func(); break;
                 case PacketType::Ping: ping(); break;
 
-                default: send_error(ErrorCode::InvalidPacketType); break;
+                default:
+                    send_packet_response(ErrorCode::InvalidPacketType, nullptr,
+                                         0);
+                    break;
             }
         }
     }
