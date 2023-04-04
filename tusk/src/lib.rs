@@ -26,11 +26,12 @@ pub enum ResponseType {
 #[repr(u8)]
 pub enum ErrorCode {
     Success = 0x00,
-    InvalidPacketType = 0x01,
-    InvalidCommand = 0x02,
-    InvalidResponse = 0x03,
-    InvalidDevice = 0x04,
-    InsufficientFunctionParameters = 0x05,
+    Unknown = 0x01,
+    InvalidPacketType = 0x02,
+    InvalidCommand = 0x03,
+    InvalidResponse = 0x04,
+    InvalidDevice = 0x05,
+    InsufficientFunctionParameters = 0x06,
 }
 
 /// Device Types
