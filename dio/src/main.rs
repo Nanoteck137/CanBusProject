@@ -1,12 +1,9 @@
 use std::io::{ErrorKind, Write};
-use std::str::Split;
 use std::sync::atomic::AtomicU8;
 
 use clap::{Parser, Subcommand};
 use num_traits::{FromPrimitive, ToPrimitive};
-use tusk::{
-    DeviceType, ErrorCode, PacketType, ResponseType, SPCommands, PACKET_START,
-};
+use tusk::{DeviceType, ErrorCode, PacketType, PACKET_START};
 
 static PID: AtomicU8 = AtomicU8::new(1);
 
@@ -17,7 +14,7 @@ enum Command {
     ExecFunc,
 }
 
-fn parse_u8(s: &str) -> Option<u8> {
+fn _parse_u8(s: &str) -> Option<u8> {
     if s.len() >= 2 {
         if &s[0..2] == "0b" {
             Some(u8::from_str_radix(&s[2..], 2).ok()?)
@@ -31,7 +28,7 @@ fn parse_u8(s: &str) -> Option<u8> {
     }
 }
 
-fn parse_cmd(cmd: &str, device_type: DeviceType) -> Option<Command> {
+fn parse_cmd(cmd: &str, _device_type: DeviceType) -> Option<Command> {
     let mut split = cmd.split(' ');
 
     let cmd = split.next()?;
@@ -84,15 +81,10 @@ struct Packet {
 impl Packet {
     fn response(&self) -> Result<&[u8], ErrorCode> {
         if self.typ == PacketType::Response {
-            let response_type = ResponseType::from_u8(self.data[0]).unwrap();
-            match response_type {
-                ResponseType::Success => Ok(&self.data[1..]),
-
-                ResponseType::Err => {
-                    let error_code = ErrorCode::from_u8(self.data[1])
-                        .unwrap_or(ErrorCode::Unknown);
-                    Err(error_code)
-                }
+            let error_code = ErrorCode::from_u8(self.data[0]).unwrap();
+            match error_code {
+                ErrorCode::Success => Ok(&self.data[1..]),
+                _ => Err(error_code),
             }
         } else {
             Err(ErrorCode::InvalidResponse)
