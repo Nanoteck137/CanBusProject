@@ -29,6 +29,7 @@ enum DeviceCommand {
 #[derive(Debug)]
 enum Command {
     Identify,
+    ExecFunc,
 
     DeviceSpecific(DeviceCommand),
 }
@@ -91,6 +92,7 @@ fn parse_cmd(cmd: &str, device_type: DeviceType) -> Option<Command> {
 
     match cmd {
         "Identify" => Some(Command::Identify),
+        "ExecFunc" => Some(Command::ExecFunc),
 
         _ => match device_type {
             DeviceType::StarPlatinum => Some(Command::DeviceSpecific(
@@ -425,6 +427,15 @@ fn run(port: &String, baudrate: u32, cmd: &str) {
             let packet = wait_for_packet(&mut port);
             match packet.response() {
                 Ok(data) => println!("Identity: {:?}", Identify::parse(data)),
+                Err(error_code) => eprintln!("Error: {:?}", error_code),
+            }
+        }
+
+        Command::ExecFunc => {
+            send_empty_packet(&mut port, PacketType::ExecFunc);
+            let packet = wait_for_packet(&mut port);
+            match packet.response() {
+                Ok(_data) => {}
                 Err(error_code) => eprintln!("Error: {:?}", error_code),
             }
         }
