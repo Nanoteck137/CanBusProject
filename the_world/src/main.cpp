@@ -133,11 +133,8 @@ struct StatusLight
             {
                 case StatusLightState::On: gpio_put(pin, true); break;
                 case StatusLightState::Off: gpio_put(pin, false); break;
-                case StatusLightState::Blink: {
-                    last_time = current_time;
-                    gpio_put(pin, false);
-                }
-                break;
+
+                case StatusLightState::Blink:
                 case StatusLightState::BlinkCount: {
                     last_time = current_time;
                     gpio_put(pin, false);
@@ -181,6 +178,7 @@ struct StatusLight
             }
 
             break;
+
             default: break;
         }
     }
@@ -194,13 +192,9 @@ struct StatusLight
     void set_blink_toggle(uint64_t blink_time)
     {
         if (state == StatusLightState::Blink)
-        {
             state = StatusLightState::Off;
-        }
         else
-        {
             set_blink(blink_time);
-        }
     }
 
     void set_blink_count(uint64_t blink_time, uint32_t blink_count)
@@ -214,20 +208,13 @@ struct StatusLight
     void set_toggle_on_off()
     {
         if (state == StatusLightState::Off)
-        {
             state = StatusLightState::On;
-            state_changed = true;
-        }
         else if (state == StatusLightState::On)
-        {
             state = StatusLightState::Off;
-            state_changed = true;
-        }
         else
-        {
             state = StatusLightState::On;
-            state_changed = true;
-        }
+
+        state_changed = true;
     }
 };
 
@@ -318,7 +305,7 @@ void update_thread(void* ptr)
 
         if (context.right.is_double_click())
         {
-            context.right_status.set_toggle_on_off();
+            // context.right_status.set_blink_count();
         }
 
         // bool left_state = !gpio_get(lines[0]);
