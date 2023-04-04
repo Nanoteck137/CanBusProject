@@ -49,29 +49,6 @@ void init_system()
 
     stdio_uart_init();
     stdio_set_driver_enabled(&debug_driver, true);
-
-    // for (int i = 0; i < NUM_DEVICES; i++)
-    // {
-    //     device_data[i].device = config.devices[i];
-    // }
-    //
-    // can_init();
-    //
-    // if (config.type == DeviceType::GoldExperience)
-    // {
-    //     for (int i = 0; i < config.num_lines; i++)
-    //     {
-    //         gpio_init(config.lines[i]);
-    //         gpio_set_dir(config.lines[i], GPIO_IN);
-    //         gpio_set_pulls(config.lines[i], true, false);
-    //     }
-    //
-    //     for (int i = 0; i < config.num_controls; i++)
-    //     {
-    //         gpio_init(config.controls[i]);
-    //         gpio_set_dir(config.controls[i], GPIO_OUT);
-    //     }
-    // }
 }
 
 void usb_thread(void* ptr)
@@ -181,48 +158,7 @@ void update_thread(void* ptr)
         button_test("Left Right", &context.left_right);
 
         if (context.right.is_double_click())
-        {
             context.right_status.blink_toggle(250 * 1000);
-        }
-
-        // bool left_state = !gpio_get(lines[0]);
-        // bool middle_state = !gpio_get(lines[1]);
-        // bool right_state = !gpio_get(lines[2]);
-        //
-        // left.update(left_state && !middle_state && !right_state);
-        // middle.update(middle_state && !left_state && !right_state);
-        // right.update(right_state && !left_state && !middle_state);
-        //
-        // left_middle.update(left_state && middle_state);
-        // middle_right.update(middle_state && right_state);
-        // left_right.update(left_state && right_state);
-        //
-        // if (left.is_click())
-        //     printf("Left Click\n");
-        // if (middle.is_click())
-        //     printf("Middle Click\n");
-        // if (left_middle.is_click())
-        //     printf("Left Middle Click\n");
-        //
-        // if (left.is_single_click())
-        //     printf("Left Single Click\n");
-        // if (middle.is_single_click())
-        //     printf("Middle Single Click\n");
-        // if (left_middle.is_single_click())
-        //     printf("Left Middle Single Click\n");
-
-        // if (left.is_click())
-        //     printf("Left\n");
-        // if (middle.is_click())
-        //     printf("Middle\n");
-        // if (right.is_click())
-        //     printf("Right\n");
-        // if (left_middle.is_click())
-        //     printf("Left Middle\n");
-        // if (middle_right.is_click())
-        //     printf("Middle Right\n");
-        // if (left_right.is_click())
-        //     printf("Left Right\n");
 
         vTaskDelay(1);
     }
