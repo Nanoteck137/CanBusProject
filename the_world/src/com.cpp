@@ -1,5 +1,7 @@
 #include "com.h"
 
+#include "device.h"
+
 #include <class/cdc/cdc_device.h>
 
 #include <FreeRTOS.h>
@@ -150,20 +152,20 @@ void send_error(ErrorCode error_code)
 void identify()
 {
     // TODO(patriK): Fix
-    // uint8_t buffer[2 + 1 + 32] = {0};
-    //
-    // // Version
-    // buffer[0] = config.version & 0xff;
-    // buffer[1] = (config.version >> 8) & 0xff;
-    //
-    // // Type
-    // buffer[2] = (uint8_t)config.type;
-    //
-    // // Name
-    // // TODO(patrik): Check for string length is not over 32
-    // memcpy(buffer + 3, config.name, strlen(config.name));
-    //
-    // send_success(buffer, sizeof(buffer));
+    uint8_t buffer[2 + 1 + 32] = {0};
+
+    // Version
+    buffer[0] = spec.version & 0xff;
+    buffer[1] = (spec.version >> 8) & 0xff;
+
+    // Type
+    buffer[2] = (uint8_t)spec.type;
+
+    // Name
+    // TODO(patrik): Check for string length is not over 32
+    memcpy(buffer + 3, spec.name, strlen(spec.name));
+
+    send_success(buffer, sizeof(buffer));
 }
 
 void command()
@@ -242,6 +244,8 @@ void command()
     }
 }
 
+void func() { send_error(ErrorCode::Unknown); }
+
 void ping() { send_success(nullptr, 0); }
 
 void handle_packets()
@@ -257,12 +261,10 @@ void handle_packets()
             {
                 case PacketType::Identify: identify(); break;
                 case PacketType::Command: command(); break;
+                case PacketType::ExecFunc: func(); break;
                 case PacketType::Ping: ping(); break;
 
-                default:
-                    // TODO(patrik): Change the error
-                    send_error(ErrorCode::InvalidPacketType);
-                    break;
+                default: send_error(ErrorCode::InvalidPacketType); break;
             }
         }
     }

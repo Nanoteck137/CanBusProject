@@ -1,9 +1,11 @@
 #pragma once
 
 #include "common.h"
+#include "func.h"
 
 const size_t MAX_LINES = 16;
 const size_t MAX_CONTROLS = 16;
+const size_t MAX_FUNCS = 50;
 
 class PhysicalLine
 {
@@ -54,6 +56,8 @@ struct DeviceSpec
 
     InitFunction init;
     UpdateFunction update;
+
+    Func funcs[MAX_FUNCS];
 };
 
 extern const DeviceSpec spec;

@@ -57,41 +57,6 @@ void usb_thread(void* ptr)
     } while (1);
 }
 
-const uint8_t FUNC_TURN_CONTROL_ON = 0x00;
-const uint8_t FUNC_TURN_CONTROL_OFF = 0x01;
-const uint8_t FUNC_TOGGLE_CONTROL = 0x02;
-
-#define DEFINE_FUNC(name) ErrorCode name(uint8_t* params, size_t num_params)
-
-#define EXPECT_NUM_PARAMS(num)                                                 \
-    if (num_params < num)                                                      \
-    {                                                                          \
-        return ErrorCode::InsufficientFunctionParameters;                      \
-    }
-
-#define GET_PARAM(index) params[index]
-
-DEFINE_FUNC(turn_control_on)
-{
-    EXPECT_NUM_PARAMS(1);
-
-    uint8_t control = GET_PARAM(0);
-
-    return ErrorCode::Success;
-}
-
-DEFINE_FUNC(turn_control_off)
-{
-    EXPECT_NUM_PARAMS(1);
-    return ErrorCode::Success;
-}
-
-DEFINE_FUNC(toggle_control)
-{
-    EXPECT_NUM_PARAMS(1);
-    return ErrorCode::Success;
-}
-
 void update_thread(void* ptr)
 {
     DeviceContext* device = (DeviceContext*)ptr;
@@ -141,8 +106,8 @@ int main()
     //             tskIDLE_PRIORITY + 3, &can_thread_handle);
     xTaskCreate(update_thread, "Update Thread", configMINIMAL_STACK_SIZE,
                 &device_context, tskIDLE_PRIORITY + 2, &update_thread_handle);
-    // xTaskCreate(com_thread, "COM Thread", configMINIMAL_STACK_SIZE, nullptr,
-    //             tskIDLE_PRIORITY + 1, &com_thread_handle);
+    xTaskCreate(com_thread, "COM Thread", configMINIMAL_STACK_SIZE,
+                &device_context, tskIDLE_PRIORITY + 1, &com_thread_handle);
 
     vTaskStartScheduler();
 }

@@ -1,8 +1,10 @@
 #include "util/button.h"
 #include "device.h"
+#include "func.h"
 
 struct Context
 {
+    PhysicalControl* relay;
     Button test;
 };
 
@@ -23,7 +25,7 @@ void button_test(const char* name, Button* button)
         printf("%s: Double click\n", name);
 }
 
-void init(DeviceContext* device) {}
+void init(DeviceContext* device) { context.relay = &device->controls[3]; }
 
 void update(DeviceContext* device)
 {
@@ -31,6 +33,18 @@ void update(DeviceContext* device)
     context.test.update(state);
 
     button_test("Test", &context.test);
+}
+
+DEFINE_FUNC(change_first_relay)
+{
+    EXPECT_NUM_PARAMS(1);
+
+    uint8_t control = GET_PARAM(0);
+
+    bool on = (control & 0x01) == 0x01;
+    context.relay->set(on);
+
+    return ErrorCode::Success;
 }
 
 const DeviceSpec spec = {
@@ -46,4 +60,10 @@ const DeviceSpec spec = {
 
     .init = init,
     .update = update,
+
+    .funcs =
+        {
+            change_first_relay, // 0x00
+            nullptr,            // LAST
+        },
 };
