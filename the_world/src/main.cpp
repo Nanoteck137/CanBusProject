@@ -149,6 +149,9 @@ void PhysicalControl::set(bool on)
 
 void PhysicalControl::toggle() { set(!m_is_on); }
 
+const size_t MAX_LINES = 16;
+const size_t MAX_CONTROLS = 16;
+
 const uint32_t LEFT_BUTTON_LINE = 10;
 const uint32_t MIDDLE_BUTTON_LINE = 11;
 const uint32_t RIGHT_BUTTON_LINE = 12;
@@ -160,14 +163,39 @@ const uint32_t RIGHT_BUTTON_STATUS_LIGHT = 8;
 const size_t NUM_PHYSICAL_CONTROLS = 3;
 const size_t NUM_PHYSICAL_LINES = 6;
 
+struct DeviceContext
+{
+    PhysicalLine lines[MAX_LINES];
+    PhysicalControl controls[MAX_CONTROLS];
+};
+
+struct DeviceSpec
+{
+    const char* name;
+    uint16_t version;
+    DeviceType type;
+
+    size_t num_lines;
+    uint32_t lines[MAX_LINES];
+
+    size_t num_controls;
+    uint32_t controls[MAX_CONTROLS];
+};
+
+const DeviceSpec spec = {
+    .name = "Back Controller",
+    .version = MAKE_VERSION(0, 1, 0),
+    .type = DeviceType::GoldExperience,
+
+    .num_lines = 6,
+    .lines = {10, 11, 12, 19, 20, 21},
+
+    .num_controls = 6,
+    .controls = {5, 7, 8, 16, 17, 18},
+};
+
 struct TestContext
 {
-    uint32_t physical_control_pins[NUM_PHYSICAL_CONTROLS] = {16, 17, 18};
-    PhysicalControl physical_controls[NUM_PHYSICAL_CONTROLS];
-
-    uint32_t physical_line_pins[NUM_PHYSICAL_LINES] = {10, 11, 12, 19, 20, 21};
-    PhysicalLine physical_lines[NUM_PHYSICAL_LINES];
-
     Button left;
     Button middle;
     Button right;
@@ -175,28 +203,22 @@ struct TestContext
     Button middle_right;
     Button left_right;
 
-    StatusLight left_status;
-    StatusLight middle_status;
-    StatusLight right_status;
+    // StatusLight left_status;
+    // StatusLight middle_status;
+    // StatusLight right_status;
 
     void init()
     {
-        for (int i = 0; i < NUM_PHYSICAL_LINES; i++)
-            physical_lines[i].init(physical_line_pins[i]);
-
-        for (int i = 0; i < NUM_PHYSICAL_CONTROLS; i++)
-            physical_controls[i].init(physical_control_pins[i]);
-
-        left_status.init(LEFT_BUTTON_STATUS_LIGHT);
-        middle_status.init(MIDDLE_BUTTON_STATUS_LIGHT);
-        right_status.init(RIGHT_BUTTON_STATUS_LIGHT);
+        // left_status.init(LEFT_BUTTON_STATUS_LIGHT);
+        // middle_status.init(MIDDLE_BUTTON_STATUS_LIGHT);
+        // right_status.init(RIGHT_BUTTON_STATUS_LIGHT);
     }
 
-    void update()
+    void update(DeviceContext* device)
     {
-        bool left_line_state = physical_lines[0].get();
-        bool middle_line_state = physical_lines[1].get();
-        bool right_line_state = physical_lines[2].get();
+        bool left_line_state = device->lines[0].get();
+        bool middle_line_state = device->lines[1].get();
+        bool right_line_state = device->lines[2].get();
 
         left.update(left_line_state && !middle_line_state && !right_line_state);
         middle.update(middle_line_state && !left_line_state &&
@@ -208,9 +230,9 @@ struct TestContext
         middle_right.update(middle_line_state && right_line_state);
         left_right.update(left_line_state && right_line_state);
 
-        left_status.update();
-        middle_status.update();
-        right_status.update();
+        // left_status.update();
+        // middle_status.update();
+        // right_status.update();
     }
 };
 
@@ -231,12 +253,14 @@ void button_test(const char* name, Button* button)
 
 void update_thread(void* ptr)
 {
+    DeviceContext* device_context = (DeviceContext*)ptr;
+
     TestContext context;
     context.init();
 
     while (true)
     {
-        context.update();
+        context.update(device_context);
 
         button_test("Left", &context.left);
         button_test("Middle", &context.middle);
@@ -246,14 +270,14 @@ void update_thread(void* ptr)
         button_test("Middle Right", &context.middle_right);
         button_test("Left Right", &context.left_right);
 
-        if (context.right.is_double_click())
+        if (context.right.is_single_click())
         {
-            for (int i = 0; i < NUM_PHYSICAL_CONTROLS; i++)
+            for (int i = 0; i < spec.num_controls; i++)
             {
-                context.physical_controls[i].toggle();
+                device_context->controls[i].toggle();
             }
 
-            context.right_status.blink_toggle(250 * 1000);
+            // context.right_status.blink_toggle(250 * 1000);
         }
 
         vTaskDelay(1);
@@ -265,9 +289,22 @@ static TaskHandle_t can_thread_handle;
 static TaskHandle_t update_thread_handle;
 static TaskHandle_t com_thread_handle;
 
+void init_device(DeviceContext* context)
+{
+    for (int i = 0; i < spec.num_lines; i++)
+        context->lines[i].init(spec.lines[i]);
+
+    for (int i = 0; i < spec.num_controls; i++)
+        context->controls[i].init(spec.controls[i]);
+}
+
+static DeviceContext context;
+
 int main()
 {
     init_system();
+
+    init_device(&context);
 
     // SP Device:
     //  - COM
@@ -280,12 +317,12 @@ int main()
 
     xTaskCreate(usb_thread, "USB Thread", configMINIMAL_STACK_SIZE, nullptr,
                 tskIDLE_PRIORITY + 4, &usb_thread_handle);
-    xTaskCreate(can_thread, "Can Thread", configMINIMAL_STACK_SIZE, nullptr,
-                tskIDLE_PRIORITY + 3, &can_thread_handle);
+    // xTaskCreate(can_thread, "Can Thread", configMINIMAL_STACK_SIZE, nullptr,
+    //             tskIDLE_PRIORITY + 3, &can_thread_handle);
     xTaskCreate(update_thread, "Update Thread", configMINIMAL_STACK_SIZE,
-                nullptr, tskIDLE_PRIORITY + 2, &update_thread_handle);
-    xTaskCreate(com_thread, "COM Thread", configMINIMAL_STACK_SIZE, nullptr,
-                tskIDLE_PRIORITY + 1, &com_thread_handle);
+                &context, tskIDLE_PRIORITY + 2, &update_thread_handle);
+    // xTaskCreate(com_thread, "COM Thread", configMINIMAL_STACK_SIZE, nullptr,
+    //             tskIDLE_PRIORITY + 1, &com_thread_handle);
 
     vTaskStartScheduler();
 }
