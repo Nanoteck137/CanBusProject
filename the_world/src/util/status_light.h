@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.h"
+#include "device.h"
 
 enum class StatusLightState
 {
@@ -12,7 +13,7 @@ enum class StatusLightState
 
 struct StatusLight
 {
-    void init(uint32_t pin);
+    void init(PhysicalControl* control);
 
     void update();
 
@@ -20,15 +21,14 @@ struct StatusLight
     void blink_toggle(uint64_t blink_time);
     void blink_count(uint64_t blink_time, uint32_t blink_count);
 
-    void on();
-    void off();
+    void set(bool on);
     void toggle();
 
 private:
     void set_state(StatusLightState new_state);
 
 private:
-    uint32_t m_pin = 0xffffffff;
+    PhysicalControl* m_control = nullptr;
     StatusLightState m_state = StatusLightState::Off;
     bool m_state_changed = false;
 

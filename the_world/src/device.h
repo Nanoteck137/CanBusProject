@@ -36,8 +36,13 @@ private:
 
 struct DeviceContext
 {
+    size_t num_lines;
     PhysicalLine lines[MAX_LINES];
+
+    size_t num_controls;
     PhysicalControl controls[MAX_CONTROLS];
+
+    size_t num_funcs;
 };
 
 typedef void (*InitFunction)(DeviceContext* device);

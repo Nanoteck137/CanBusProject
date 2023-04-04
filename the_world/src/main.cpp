@@ -76,11 +76,26 @@ static TaskHandle_t com_thread_handle;
 
 void init_device(DeviceContext* context)
 {
+    context->num_lines = spec.num_lines;
+    context->num_controls = spec.num_controls;
+
     for (int i = 0; i < spec.num_lines; i++)
         context->lines[i].init(spec.lines[i]);
 
     for (int i = 0; i < spec.num_controls; i++)
         context->controls[i].init(spec.controls[i]);
+
+    size_t num_funcs = 0;
+
+    for (int i = 0;; i++)
+    {
+        if (spec.funcs[i])
+            num_funcs++;
+        else
+            break;
+    }
+
+    context->num_funcs = num_funcs;
 }
 
 static DeviceContext device_context;

@@ -182,11 +182,35 @@ void status()
     send_packet_response(ErrorCode::Success, buffer, sizeof(buffer));
 }
 
-void func() { send_packet_response(ErrorCode::Unknown, nullptr, 0); }
+void exec_func(Packet* packet, DeviceContext* device)
+{
+    if (packet->data_len <= 0)
+    {
+        // TODO(patrik): Change error code
+        send_packet_response(ErrorCode::InvalidDevice, nullptr, 0);
+        return;
+    }
+
+    uint8_t func_index = read_u8_from_data();
+
+    if (func_index >= device->num_funcs)
+    {
+        send_packet_response(ErrorCode::InvalidFunction, nullptr, 0);
+        return;
+    }
+
+    size_t num_params = 0;
+    if (packet->data_len > 0)
+        num_params = packet->data_len - 1;
+
+    Func func = spec.funcs[func_index];
+    ErrorCode error_code = func(data_buffer + current_data_offset, num_params);
+    send_packet_response(error_code, nullptr, 0);
+}
 
 void ping() { send_packet_response(ErrorCode::Success, nullptr, 0); }
 
-void handle_packets()
+void handle_packets(DeviceContext* device)
 {
     if (tud_cdc_n_available(PORT_CMD) > 0)
     {
@@ -199,7 +223,7 @@ void handle_packets()
             {
                 case PacketType::Identify: identify(); break;
                 case PacketType::Status: status(); break;
-                case PacketType::ExecFunc: func(); break;
+                case PacketType::ExecFunc: exec_func(&packet, device); break;
                 case PacketType::Ping: ping(); break;
 
                 default:
@@ -215,9 +239,10 @@ void send_update() {}
 
 void com_thread(void* ptr)
 {
+    DeviceContext* device = (DeviceContext*)ptr;
     while (1)
     {
-        handle_packets();
+        handle_packets(device);
 
         if (send_updates)
             send_update();

@@ -1,16 +1,10 @@
 #include "status_light.h"
+#include "device.h"
 
 #include <pico/stdlib.h>
 #include <hardware/gpio.h>
 
-void StatusLight::init(uint32_t pin)
-{
-    m_pin = pin;
-
-    gpio_init(pin);
-    gpio_set_dir(pin, GPIO_OUT);
-    gpio_put(pin, false);
-}
+void StatusLight::init(PhysicalControl* control) { m_control = control; }
 
 void StatusLight::update()
 {
@@ -20,13 +14,13 @@ void StatusLight::update()
     {
         switch (m_state)
         {
-            case StatusLightState::On: gpio_put(m_pin, true); break;
-            case StatusLightState::Off: gpio_put(m_pin, false); break;
+            case StatusLightState::On: m_control->set(true); break;
+            case StatusLightState::Off: m_control->set(false); break;
 
             case StatusLightState::Blink:
             case StatusLightState::BlinkCount: {
                 m_last_time = current_time;
-                gpio_put(m_pin, false);
+                m_control->set(false);
             }
             break;
         }
@@ -40,7 +34,7 @@ void StatusLight::update()
             if (current_time - m_last_time > m_blink_time)
             {
                 m_blink_value = !m_blink_value;
-                gpio_put(m_pin, m_blink_value);
+                m_control->set(m_blink_value);
                 m_last_time = current_time;
             }
         }
@@ -50,12 +44,13 @@ void StatusLight::update()
             {
                 if (m_current_blink_count >= m_blink_count)
                 {
-                    gpio_put(m_pin, false);
+                    m_control->set(false);
                 }
                 else
                 {
                     m_blink_value = !m_blink_value;
-                    gpio_put(m_pin, m_blink_value);
+                    m_control->set(m_blink_value);
+
                     if (m_blink_value)
                         m_current_blink_count++;
                 }
@@ -79,7 +74,7 @@ void StatusLight::blink(uint64_t blink_time)
 void StatusLight::blink_toggle(uint64_t blink_time)
 {
     if (m_state == StatusLightState::Blink)
-        off();
+        set(false);
     else
         blink(blink_time);
 }
@@ -92,16 +87,20 @@ void StatusLight::blink_count(uint64_t blink_time, uint32_t blink_count)
     m_current_blink_count = 0;
 }
 
-void StatusLight::on() { set_state(StatusLightState::On); }
-
-void StatusLight::off() { set_state(StatusLightState::Off); }
+void StatusLight::set(bool on)
+{
+    if (on)
+        set_state(StatusLightState::On);
+    else
+        set_state(StatusLightState::Off);
+}
 
 void StatusLight::toggle()
 {
     switch (m_state)
     {
-        case StatusLightState::On: off();
-        default: on();
+        case StatusLightState::On: set(false);
+        default: set(true);
     }
 }
 

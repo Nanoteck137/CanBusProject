@@ -1,11 +1,34 @@
 #include "util/button.h"
+#include "util/status_light.h"
 #include "device.h"
 #include "func.h"
 
 struct Context
 {
     PhysicalControl* relay;
+    PhysicalControl* backup_lamps;
+    StatusLight light;
     Button test;
+
+    bool warning_mode = false;
+
+    void set_warning_mode(bool on)
+    {
+        warning_mode = on;
+        update_status();
+    }
+
+    void update_status()
+    {
+        if (warning_mode)
+        {
+            light.blink(500 * 1000);
+        }
+        else
+        {
+            light.set(relay->is_on());
+        }
+    }
 };
 
 static Context context;
@@ -25,15 +48,24 @@ void button_test(const char* name, Button* button)
         printf("%s: Double click\n", name);
 }
 
-void init(DeviceContext* device) { context.relay = &device->controls[3]; }
+void init(DeviceContext* device)
+{
+    context.relay = &device->controls[3];
+    context.backup_lamps = &device->controls[5];
+    context.light.init(&device->controls[2]);
+}
 
 void update(DeviceContext* device)
 {
-    bool state = device->lines[0].get();
+    bool state = device->lines[2].get();
     context.test.update(state);
+    context.light.update();
 
     if (context.test.is_single_click())
+    {
         context.relay->toggle();
+        context.update_status();
+    }
 
     button_test("Test", &context.test);
 }
@@ -52,6 +84,20 @@ DEFINE_FUNC(change_first_relay)
 
     bool on = (control & 0x01) == 0x01;
     context.relay->set(on);
+    context.update_status();
+
+    return ErrorCode::Success;
+}
+
+DEFINE_FUNC(change_backup_lamps)
+{
+    EXPECT_NUM_PARAMS(1);
+
+    uint8_t control = GET_PARAM(0);
+
+    bool on = (control & 0x01) == 0x01;
+    context.backup_lamps->set(on);
+    context.set_warning_mode(context.backup_lamps->is_on());
 
     return ErrorCode::Success;
 }
@@ -73,7 +119,8 @@ const DeviceSpec spec = {
 
     .funcs =
         {
-            change_first_relay, // 0x00
-            nullptr,            // LAST
+            change_first_relay,  // 0x00
+            change_backup_lamps, // 0x01
+            nullptr,             // LAST
         },
 };
