@@ -168,80 +168,14 @@ void identify()
     send_success(buffer, sizeof(buffer));
 }
 
-void command()
+void status()
 {
-    SPCommands cmd = (SPCommands)read_u8_from_data();
-    switch (cmd)
-    {
-        case SPCommands::Configure: {
-            uint8_t send_updates = read_u8_from_data();
-            printf("CONFIGURE SU: %d\n", send_updates > 0 ? true : false);
-            send_success(nullptr, 0);
-        }
-        break;
+    uint8_t buffer[STATUS_BUFFER_SIZE];
+    memset(buffer, 0, sizeof(buffer));
 
-        case SPCommands::SetDeviceControls: {
-            uint8_t device_index = read_u8_from_data();
-            uint8_t controls = read_u8_from_data();
+    spec.get_status(buffer);
 
-            // TODO(patriK): Fix
-            // if (device_index >= NUM_DEVICES)
-            // {
-            //     send_error(ErrorCode::InvalidDevice);
-            //     return;
-            // }
-
-            // Device* device = &devices[device_index];
-            // device->controls = controls;
-            // device->need_update = true;
-
-            printf("SET_DEVICE_CONTROLS: 0x%x = 0x%x\n", device_index,
-                   controls);
-
-            send_success(nullptr, 0);
-        }
-        break;
-
-        case SPCommands::GetDeviceControls: {
-            uint8_t device_index = read_u8_from_data();
-
-            // TODO(patriK): Fix
-            // if (device_index >= NUM_DEVICES)
-            // {
-            //     send_error(ErrorCode::InvalidDevice);
-            //     return;
-            // }
-
-            // Device* device = devices + device_index;
-            // uint8_t controls = device->controls;
-
-            printf("GET_DEVICE_CONTROLS: 0x%x\n", device_index);
-            uint8_t data[] = {0};
-            send_success(data, sizeof(data));
-        }
-        break;
-
-        case SPCommands::GetDeviceLines: {
-            uint8_t device_index = read_u8_from_data();
-
-            // TODO(patrik): Fix
-            // if (device_index >= NUM_DEVICES)
-            // {
-            //     send_error(ErrorCode::InvalidDevice);
-            //     return;
-            // }
-
-            // Device* device = devices + device_index;
-            // uint8_t lines = device->lines;
-
-            printf("GET_DEVICE_LINES: 0x%x\n", device_index);
-            uint8_t data[] = {0};
-            send_success(data, sizeof(data));
-        }
-        break;
-
-        default: send_error(ErrorCode::InvalidCommand); break;
-    }
+    send_success(buffer, sizeof(buffer));
 }
 
 void func() { send_error(ErrorCode::Unknown); }
@@ -260,7 +194,7 @@ void handle_packets()
             switch (packet.typ)
             {
                 case PacketType::Identify: identify(); break;
-                case PacketType::Command: command(); break;
+                case PacketType::Status: status(); break;
                 case PacketType::ExecFunc: func(); break;
                 case PacketType::Ping: ping(); break;
 

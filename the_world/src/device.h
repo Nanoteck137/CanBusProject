@@ -3,6 +3,7 @@
 #include "common.h"
 #include "func.h"
 
+const size_t STATUS_BUFFER_SIZE = 16;
 const size_t MAX_LINES = 16;
 const size_t MAX_CONTROLS = 16;
 const size_t MAX_FUNCS = 50;
@@ -26,7 +27,7 @@ public:
     void set(bool on);
     void toggle();
 
-    bool get() const { return m_is_on; }
+    bool is_on() const { return m_is_on; }
 
 private:
     uint32_t m_pin = 0xffffffff;
@@ -41,6 +42,7 @@ struct DeviceContext
 
 typedef void (*InitFunction)(DeviceContext* device);
 typedef void (*UpdateFunction)(DeviceContext* device);
+typedef void (*GetStatusFunction)(uint8_t* buffer);
 
 struct DeviceSpec
 {
@@ -56,6 +58,7 @@ struct DeviceSpec
 
     InitFunction init;
     UpdateFunction update;
+    GetStatusFunction get_status;
 
     Func funcs[MAX_FUNCS];
 };

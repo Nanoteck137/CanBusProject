@@ -32,7 +32,16 @@ void update(DeviceContext* device)
     bool state = device->lines[0].get();
     context.test.update(state);
 
+    if (context.test.is_single_click())
+        context.relay->toggle();
+
     button_test("Test", &context.test);
+}
+
+void get_status(uint8_t* buffer)
+{
+    // Byte 0 - Relay Status
+    buffer[0] = context.relay->is_on();
 }
 
 DEFINE_FUNC(change_first_relay)
@@ -60,6 +69,7 @@ const DeviceSpec spec = {
 
     .init = init,
     .update = update,
+    .get_status = get_status,
 
     .funcs =
         {
