@@ -92,44 +92,14 @@ DEFINE_FUNC(toggle_control)
     return ErrorCode::Success;
 }
 
-// const uint32_t LEFT_BUTTON_LINE = 10;
-// const uint32_t MIDDLE_BUTTON_LINE = 11;
-// const uint32_t RIGHT_BUTTON_LINE = 12;
-//
-// const uint32_t LEFT_BUTTON_STATUS_LIGHT = 5;
-// const uint32_t MIDDLE_BUTTON_STATUS_LIGHT = 7;
-// const uint32_t RIGHT_BUTTON_STATUS_LIGHT = 8;
-//
-// const size_t NUM_PHYSICAL_CONTROLS = 3;
-// const size_t NUM_PHYSICAL_LINES = 6;
-
 void update_thread(void* ptr)
 {
     DeviceContext* device = (DeviceContext*)ptr;
-    // init(device);
     spec.init(device);
 
     while (true)
     {
         spec.update(device);
-        // button_test("Left", &context.left);
-        // button_test("Middle", &context.middle);
-        // button_test("Right", &context.right);
-        //
-        // button_test("Left Middle", &context.left_middle);
-        // button_test("Middle Right", &context.middle_right);
-        // button_test("Left Right", &context.left_right);
-
-        // if (context.right.is_single_click())
-        // {
-        //     for (int i = 0; i < spec.num_controls; i++)
-        //     {
-        //         device_context->controls[i].toggle();
-        //     }
-        //
-        //     // context.right_status.blink_toggle(250 * 1000);
-        // }
-
         vTaskDelay(1);
     }
 }
