@@ -60,9 +60,40 @@ void usb_thread(void* ptr)
     } while (1);
 }
 
-#define MAX_BUTTONS 8
+const uint8_t FUNC_TURN_CONTROL_ON = 0x00;
+const uint8_t FUNC_TURN_CONTROL_OFF = 0x01;
+const uint8_t FUNC_TOGGLE_CONTROL = 0x02;
 
-const size_t NUM_LINES = 3;
+#define DEFINE_FUNC(name) ErrorCode name(uint8_t* params, size_t num_params)
+
+#define EXPECT_NUM_PARAMS(num)                                                 \
+    if (num_params < num)                                                      \
+    {                                                                          \
+        return ErrorCode::InsufficientFunctionParameters;                      \
+    }
+
+#define GET_PARAM(index) params[index]
+
+DEFINE_FUNC(turn_control_on)
+{
+    EXPECT_NUM_PARAMS(1);
+
+    uint8_t control = GET_PARAM(0);
+
+    return ErrorCode::Success;
+}
+
+DEFINE_FUNC(turn_control_off)
+{
+    EXPECT_NUM_PARAMS(1);
+    return ErrorCode::Success;
+}
+
+DEFINE_FUNC(toggle_control)
+{
+    EXPECT_NUM_PARAMS(1);
+    return ErrorCode::Success;
+}
 
 const uint32_t LEFT_BUTTON_LINE = 10;
 const uint32_t MIDDLE_BUTTON_LINE = 11;
