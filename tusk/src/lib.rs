@@ -9,7 +9,7 @@ pub const PACKET_START: u8 = 0x4e;
 #[repr(u8)]
 pub enum PacketType {
     Identify = 0x00,
-    Command = 0x01,
+    Status = 0x01,
     ExecFunc = 0x02,
     Ping = 0x03,
     Update = 0x04,
