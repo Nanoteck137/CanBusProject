@@ -26,6 +26,7 @@ pub enum ErrorCode {
     InvalidResponse = 0x04,
     InvalidDevice = 0x05,
     InsufficientFunctionParameters = 0x06,
+    InvalidFunction = 0x07,
 }
 
 /// Device Types
