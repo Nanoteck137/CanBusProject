@@ -29,7 +29,7 @@ where
 
     let device_name = format!("-DDEVICE_NAME={}", name);
 
-    // cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -S source -B target
+    // cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DDEVICE_NAME=rsnav -S source -B target
     let status = Command::new("cmake")
         .arg("-DCMAKE_EXPORT_COMPILE_COMMANDS=1")
         .arg(device_name)
