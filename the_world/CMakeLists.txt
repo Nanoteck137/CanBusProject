@@ -5,7 +5,7 @@ cmake_print_variables(CMAKE_CURRENT_BINARY_DIR)
 
 set(THIRD_PARTY_DIR ${CMAKE_CURRENT_LIST_DIR}/../third_party)
 set(FREERTOS_KERNEL_PATH ${THIRD_PARTY_DIR}/FreeRTOS-Kernel)
-set(TUSK_BINDINGS_PATH ${CMAKE_CURRENT_LIST_DIR}/../build/tusk/)
+set(TUSK_BINDINGS_PATH ${CMAKE_CURRENT_LIST_DIR}/../target/tusk/)
 
 include(pico_sdk_import.cmake)
 include(FreeRTOS_Kernel_import.cmake)
