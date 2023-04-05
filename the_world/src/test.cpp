@@ -10,24 +10,15 @@ struct Context
     StatusLight light;
     Button test;
 
-    bool warning_mode = false;
-
-    void set_warning_mode(bool on)
-    {
-        warning_mode = on;
-        update_status();
-    }
-
     void update_status()
     {
-        if (warning_mode)
+        if (backup_lamps->is_on())
         {
-            light.blink(500 * 1000);
+            light.blink_count(500 * 1000, 2);
+            return;
         }
-        else
-        {
-            light.set(relay->is_on());
-        }
+
+        light.set(relay->is_on());
     }
 };
 
@@ -97,7 +88,7 @@ DEFINE_FUNC(change_backup_lamps)
 
     bool on = (control & 0x01) == 0x01;
     context.backup_lamps->set(on);
-    context.set_warning_mode(context.backup_lamps->is_on());
+    context.update_status();
 
     return ErrorCode::Success;
 }

@@ -20,7 +20,8 @@ void StatusLight::update()
             case StatusLightState::Blink:
             case StatusLightState::BlinkCount: {
                 m_last_time = current_time;
-                m_control->set(false);
+                m_control->set(true);
+                m_blink_value = true;
             }
             break;
         }
@@ -51,7 +52,7 @@ void StatusLight::update()
                     m_blink_value = !m_blink_value;
                     m_control->set(m_blink_value);
 
-                    if (m_blink_value)
+                    if (!m_blink_value)
                         m_current_blink_count++;
                 }
 
