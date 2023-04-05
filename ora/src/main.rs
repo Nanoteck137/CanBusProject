@@ -1,14 +1,7 @@
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::{Read, Write};
 use std::path::Path;
 use std::process::Command;
 
 use clap::{Parser, Subcommand};
-use serde::{Deserialize, Serialize};
-use tusk::DeviceType;
-
-mod spec;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -24,16 +17,19 @@ enum Action {
     TestFirmware {},
 }
 
-fn generate_cmake_project<P>(path: P, target: P)
+fn generate_cmake_project<P>(path: P, target: P, name: &str)
 where
     P: AsRef<Path>,
 {
     let source = path.as_ref();
     let target = target.as_ref();
 
+    let device_name = format!("-DDEVICE_NAME={}", name);
+
     // cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -S source -B target
     let status = Command::new("cmake")
         .arg("-DCMAKE_EXPORT_COMPILE_COMMANDS=1")
+        .arg(device_name)
         .arg("-S")
         .arg(source)
         .arg("-B")
@@ -98,14 +94,14 @@ fn main() {
         Action::Firmware {} => {
             generate_tusk_bindings();
 
-            let name = "the_world";
-            let build_path = format!("build/{}", name);
+            let name = "test";
+            let build_path = format!("target/device/{}", name);
 
             println!("---------------------------------------------");
             println!("Building firmware for device: '{}'", name);
             std::fs::create_dir_all(&build_path).unwrap();
             println!("Running cmake");
-            generate_cmake_project("the_world", &build_path);
+            generate_cmake_project("the_world", &build_path, name);
             println!();
             println!("Running make");
             compile_with_make(&build_path);
@@ -116,7 +112,7 @@ fn main() {
             println!("---------------------------------------------");
             std::fs::create_dir_all("build/the_hand").unwrap();
             println!("Running cmake");
-            generate_cmake_project("the_hand", "build/the_hand");
+            // generate_cmake_project("the_hand", "build/the_hand");
             println!();
             println!("Running make");
             compile_with_make("build/the_hand");
