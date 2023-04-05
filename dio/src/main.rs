@@ -32,11 +32,13 @@ fn parse_cmd(cmd: &str, _device_type: DeviceType) -> Option<Command> {
     let mut split = cmd.split(' ');
 
     let cmd = split.next()?;
+    let cmd = cmd.to_lowercase();
+    let cmd = cmd.as_str();
 
     match cmd {
-        "Identify" => Some(Command::Identify),
-        "Status" => Some(Command::Status),
-        "Command" => {
+        "identify" => Some(Command::Identify),
+        "status" => Some(Command::Status),
+        "command" => {
             let cmd = split.next()?;
             let cmd = parse_u8(cmd)?;
 
