@@ -72,7 +72,7 @@ where
 }
 
 fn generate_tusk_bindings() {
-    std::fs::create_dir_all("build/tusk").unwrap();
+    std::fs::create_dir_all("target/tusk").unwrap();
     let output = "target/tusk/tusk.h";
 
     let status = Command::new("cbindgen")
@@ -102,11 +102,14 @@ fn main() {
             println!("---------------------------------------------");
             println!("Building firmware for device: '{}'", name);
             std::fs::create_dir_all(&build_path).unwrap();
+
             println!("Running cmake");
             generate_cmake_project("the_world", &build_path, &name);
             println!();
+
             println!("Running make");
             compile_with_make(&build_path);
+
             println!("---------------------------------------------");
         }
 
