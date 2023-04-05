@@ -11,7 +11,7 @@ static PID: AtomicU8 = AtomicU8::new(1);
 enum Command {
     Identify,
     Status,
-    ExecFunc { func: u8, params: Vec<u8> },
+    Command { cmd: u8, params: Vec<u8> },
 }
 
 fn parse_u8(s: &str) -> Option<u8> {
@@ -36,16 +36,16 @@ fn parse_cmd(cmd: &str, _device_type: DeviceType) -> Option<Command> {
     match cmd {
         "Identify" => Some(Command::Identify),
         "Status" => Some(Command::Status),
-        "ExecFunc" => {
-            let func = split.next()?;
-            let func = parse_u8(func)?;
+        "Command" => {
+            let cmd = split.next()?;
+            let cmd = parse_u8(cmd)?;
 
             let mut params = Vec::new();
             for s in split.map(|s| parse_u8(s)) {
                 params.push(s?);
             }
 
-            Some(Command::ExecFunc { func, params })
+            Some(Command::Command { cmd, params })
         }
 
         _ => None,
@@ -332,12 +332,12 @@ fn run(port: &String, baudrate: u32, cmd: &str) {
             }
         }
 
-        Command::ExecFunc { func, params } => {
+        Command::Command { cmd, params } => {
             let mut data = Vec::new();
-            data.push(func);
+            data.push(cmd);
             data.extend_from_slice(&params);
 
-            send_packet(&mut port, PacketType::ExecFunc, &data);
+            send_packet(&mut port, PacketType::Command, &data);
             let packet = wait_for_packet(&mut port);
             match packet.response() {
                 Ok(_data) => {}
