@@ -13,7 +13,9 @@ struct Args {
 #[derive(Subcommand, Debug)]
 enum Action {
     /// Compile firmware
-    Firmware {},
+    Firmware {
+        device: String,
+    },
     TestFirmware {},
 }
 
@@ -71,7 +73,7 @@ where
 
 fn generate_tusk_bindings() {
     std::fs::create_dir_all("build/tusk").unwrap();
-    let output = "build/tusk/tusk.h";
+    let output = "target/tusk/tusk.h";
 
     let status = Command::new("cbindgen")
         .arg("tusk")
@@ -91,17 +93,17 @@ fn main() {
     let args = Args::parse();
 
     match args.action {
-        Action::Firmware {} => {
+        Action::Firmware { device } => {
             generate_tusk_bindings();
 
-            let name = "test";
+            let name = device;
             let build_path = format!("target/device/{}", name);
 
             println!("---------------------------------------------");
             println!("Building firmware for device: '{}'", name);
             std::fs::create_dir_all(&build_path).unwrap();
             println!("Running cmake");
-            generate_cmake_project("the_world", &build_path, name);
+            generate_cmake_project("the_world", &build_path, &name);
             println!();
             println!("Running make");
             compile_with_make(&build_path);
