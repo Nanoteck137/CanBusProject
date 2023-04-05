@@ -67,6 +67,11 @@ void get_status(uint8_t* buffer)
     buffer[0] = context.relay->is_on();
 }
 
+static void on_can_message(uint32_t can_id, uint8_t* data, size_t len)
+{
+    printf("Got CAN Message: 0x%x\n", can_id);
+}
+
 DEFINE_CMD(change_first_relay)
 {
     EXPECT_NUM_PARAMS(1);
@@ -96,7 +101,6 @@ DEFINE_CMD(change_backup_lamps)
 const DeviceSpec spec = {
     .name = "Test Controller",
     .version = MAKE_VERSION(0, 1, 0),
-    .type = DeviceType::GoldExperience,
 
     .num_lines = 6,
     .lines = {10, 11, 12, 19, 20, 21},
@@ -107,6 +111,7 @@ const DeviceSpec spec = {
     .init = init,
     .update = update,
     .get_status = get_status,
+    .on_can_message = on_can_message,
 
     .funcs =
         {
