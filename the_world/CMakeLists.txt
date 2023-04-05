@@ -16,6 +16,10 @@ set(CMAKE_CXX_STANDARD 17)
 
 pico_sdk_init()
 
+if(NOT DEFINED DEVICE_NAME)
+	message(FATAL_ERROR "DEVICE_NAME not defined")
+endif()
+
 add_executable(the_world
 	src/main.cpp
 	src/com.cpp
@@ -23,7 +27,7 @@ add_executable(the_world
 	src/device.cpp
 	src/usb_descriptors.cpp
 
-	src/test.cpp
+	src/device/${DEVICE_NAME}.cpp
 
 	src/util/serial_number.cpp
 	src/util/status_light.cpp
