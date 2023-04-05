@@ -110,16 +110,11 @@ void send_packet(PacketType type, uint8_t* data, uint8_t len)
 {
     write_packet_header(type);
 
+    write_u8(len);
+
     // Data Length
     if (data && len > 0)
-    {
-        write_u8(len);
         write(data, len);
-    }
-    else
-    {
-        write_u8(0);
-    }
 
     // Checksum
     write_u16(0);
@@ -137,9 +132,7 @@ void send_packet_response(ErrorCode error_code, uint8_t* data, size_t len)
 
     // Data Length
     if (data && len > 0)
-    {
         write(data, len);
-    }
 
     // Checksum
     write_u16(0);
@@ -153,17 +146,21 @@ static bool send_updates = false;
 
 static uint8_t temp[256];
 
-void identify()
+void identify(DeviceContext* device)
 {
     // TODO(patriK): Fix
+    // NOTE(patrik): Bytes
+    //  2 bytes - Version
+    //  1 byte - Num Commands
+    //  32 bytes - name
     uint8_t buffer[2 + 1 + 32] = {0};
 
     // Version
     buffer[0] = spec.version & 0xff;
     buffer[1] = (spec.version >> 8) & 0xff;
 
-    // Type
-    buffer[2] = (uint8_t)spec.type;
+    // Num Commands
+    buffer[2] = (uint8_t)device->num_cmds;
 
     // Name
     // TODO(patrik): Check for string length is not over 32
@@ -221,7 +218,7 @@ void handle_packets(DeviceContext* device)
 
             switch (packet.typ)
             {
-                case PacketType::Identify: identify(); break;
+                case PacketType::Identify: identify(device); break;
                 case PacketType::Status: status(); break;
                 case PacketType::Command: command(&packet, device); break;
                 case PacketType::Ping: ping(); break;

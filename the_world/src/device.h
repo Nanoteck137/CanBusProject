@@ -48,12 +48,13 @@ struct DeviceContext
 typedef void (*InitFunction)(DeviceContext* device);
 typedef void (*UpdateFunction)(DeviceContext* device);
 typedef void (*GetStatusFunction)(uint8_t* buffer);
+typedef void (*OnCanMessageFunction)(uint32_t can_id, uint8_t* data,
+                                     size_t len);
 
 struct DeviceSpec
 {
     const char* name;
     uint16_t version;
-    DeviceType type;
 
     size_t num_lines;
     uint32_t lines[MAX_LINES];
@@ -64,6 +65,7 @@ struct DeviceSpec
     InitFunction init;
     UpdateFunction update;
     GetStatusFunction get_status;
+    OnCanMessageFunction on_can_message;
 
     CmdFunction funcs[MAX_CMDS];
 };

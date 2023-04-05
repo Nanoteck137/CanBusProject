@@ -44,6 +44,8 @@ void init_system()
     board_init();
     tusb_init();
 
+    can_init();
+
     stdio_uart_init();
     stdio_set_driver_enabled(&debug_driver, true);
 }
@@ -65,6 +67,8 @@ void update_thread(void* ptr)
     while (true)
     {
         spec.update(device);
+        can_update();
+
         vTaskDelay(1);
     }
 }
