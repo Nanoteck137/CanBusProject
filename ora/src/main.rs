@@ -13,6 +13,7 @@ struct Args {
 #[derive(Subcommand, Debug)]
 enum Action {
     /// Compile firmware
+    GenTusk {},
     Firmware {
         device: String,
     },
@@ -93,6 +94,11 @@ fn main() {
     let args = Args::parse();
 
     match args.action {
+        Action::GenTusk {} => {
+            println!("Generating tusk bindings");
+            generate_tusk_bindings();
+        }
+
         Action::Firmware { device } => {
             generate_tusk_bindings();
 
