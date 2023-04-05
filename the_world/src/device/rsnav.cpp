@@ -17,15 +17,10 @@ static void update(DeviceContext* device)
     uint64_t current = time_us_64();
     if (current - context.last > 1000 * 1000)
     {
-        printf("Sending CAN Message\n");
         if (send_can_message(0x100, nullptr, 0))
-        {
             printf("Sent CAN Message: Success\n");
-        }
         else
-        {
             printf("Sent CAN Message: Failed\n");
-        }
 
         context.last = current;
     }
