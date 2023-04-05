@@ -6,7 +6,7 @@
 const size_t STATUS_BUFFER_SIZE = 16;
 const size_t MAX_LINES = 16;
 const size_t MAX_CONTROLS = 16;
-const size_t MAX_FUNCS = 50;
+const size_t MAX_CMDS = 50;
 
 class PhysicalLine
 {
@@ -42,7 +42,7 @@ struct DeviceContext
     size_t num_controls;
     PhysicalControl controls[MAX_CONTROLS];
 
-    size_t num_funcs;
+    size_t num_cmds;
 };
 
 typedef void (*InitFunction)(DeviceContext* device);
@@ -65,7 +65,7 @@ struct DeviceSpec
     UpdateFunction update;
     GetStatusFunction get_status;
 
-    Func funcs[MAX_FUNCS];
+    CmdFunction funcs[MAX_CMDS];
 };
 
 extern const DeviceSpec spec;

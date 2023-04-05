@@ -85,17 +85,17 @@ void init_device(DeviceContext* context)
     for (int i = 0; i < spec.num_controls; i++)
         context->controls[i].init(spec.controls[i]);
 
-    size_t num_funcs = 0;
+    size_t num_cmds = 0;
 
     for (int i = 0;; i++)
     {
         if (spec.funcs[i])
-            num_funcs++;
+            num_cmds++;
         else
             break;
     }
 
-    context->num_funcs = num_funcs;
+    context->num_cmds = num_cmds;
 }
 
 static DeviceContext device_context;

@@ -182,7 +182,7 @@ void status()
     send_packet_response(ErrorCode::Success, buffer, sizeof(buffer));
 }
 
-void exec_func(Packet* packet, DeviceContext* device)
+void command(Packet* packet, DeviceContext* device)
 {
     if (packet->data_len <= 0)
     {
@@ -191,9 +191,9 @@ void exec_func(Packet* packet, DeviceContext* device)
         return;
     }
 
-    uint8_t func_index = read_u8_from_data();
+    uint8_t cmd_index = read_u8_from_data();
 
-    if (func_index >= device->num_funcs)
+    if (cmd_index >= device->num_cmds)
     {
         send_packet_response(ErrorCode::InvalidFunction, nullptr, 0);
         return;
@@ -203,8 +203,8 @@ void exec_func(Packet* packet, DeviceContext* device)
     if (packet->data_len > 0)
         num_params = packet->data_len - 1;
 
-    Func func = spec.funcs[func_index];
-    ErrorCode error_code = func(data_buffer + current_data_offset, num_params);
+    CmdFunction cmd = spec.funcs[cmd_index];
+    ErrorCode error_code = cmd(data_buffer + current_data_offset, num_params);
     send_packet_response(error_code, nullptr, 0);
 }
 
@@ -223,7 +223,7 @@ void handle_packets(DeviceContext* device)
             {
                 case PacketType::Identify: identify(); break;
                 case PacketType::Status: status(); break;
-                case PacketType::ExecFunc: exec_func(&packet, device); break;
+                case PacketType::Command: command(&packet, device); break;
                 case PacketType::Ping: ping(); break;
 
                 default:

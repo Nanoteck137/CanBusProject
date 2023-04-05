@@ -67,7 +67,7 @@ void get_status(uint8_t* buffer)
     buffer[0] = context.relay->is_on();
 }
 
-DEFINE_FUNC(change_first_relay)
+DEFINE_CMD(change_first_relay)
 {
     EXPECT_NUM_PARAMS(1);
 
@@ -80,7 +80,7 @@ DEFINE_FUNC(change_first_relay)
     return ErrorCode::Success;
 }
 
-DEFINE_FUNC(change_backup_lamps)
+DEFINE_CMD(change_backup_lamps)
 {
     EXPECT_NUM_PARAMS(1);
 
