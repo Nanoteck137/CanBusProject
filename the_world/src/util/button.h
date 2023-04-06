@@ -5,8 +5,8 @@
 // NOTE(patrik): https://github.com/poelstra/arduino-multi-button
 
 const int DEBOUNCE_DELAY = 50 * 1000;     // us
-const int SINGLECLICK_DELAY = 350 * 1000; // us
-const int LONGCLICK_DELAY = 500 * 1000;   // us
+const int SINGLECLICK_DELAY = 250 * 1000; // us
+const int LONGCLICK_DELAY = 350 * 1000;   // us
 
 enum class ButtonState
 {
