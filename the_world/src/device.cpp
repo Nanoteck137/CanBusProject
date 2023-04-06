@@ -29,6 +29,7 @@ void PhysicalControl::init(uint32_t pin)
 void PhysicalControl::set(bool on)
 {
     m_is_on = on;
+    // TODO(patrik): Dont call if not changed?
     gpio_put(m_pin, m_is_on);
 }
 
