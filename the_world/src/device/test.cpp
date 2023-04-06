@@ -2,6 +2,7 @@
 #include "util/status_light.h"
 #include "device.h"
 #include "func.h"
+#include "can.h"
 
 struct Context
 {
@@ -70,6 +71,11 @@ void get_status(uint8_t* buffer)
 static void on_can_message(uint32_t can_id, uint8_t* data, size_t len)
 {
     printf("Got CAN Message: 0x%x\n", can_id);
+
+    if (send_can_message(0x200, nullptr, 0))
+        printf("Sent CAN Message: Success\n");
+    else
+        printf("Sent CAN Message: Failed\n");
 }
 
 DEFINE_CMD(change_first_relay)
