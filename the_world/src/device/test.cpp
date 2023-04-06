@@ -11,6 +11,8 @@ struct Context
     StatusLight light;
     Button test;
 
+    uint64_t send_update_timer;
+
     void update_status()
     {
         if (backup_lamps->is_on())
@@ -49,6 +51,8 @@ void init(DeviceContext* device)
 
 void update(DeviceContext* device)
 {
+    uint64_t current_time = time_us_64();
+
     bool state = device->lines[2].get();
     context.test.update(state);
     context.light.update();
@@ -57,7 +61,24 @@ void update(DeviceContext* device)
     {
         context.relay->toggle();
         context.update_status();
+
+        uint8_t data[] = {0x01, 0x00, context.relay->is_on()};
+        send_can_message(0x100, data, sizeof(data));
     }
+
+    if (context.test.is_long_click())
+    {
+        uint8_t data[] = {0x01, 0x01};
+        send_can_message(0x100, data, sizeof(data));
+    }
+
+    // if (current_time - context.send_update_timer > 100 * 1000)
+    // {
+    //     uint8_t status = (uint8_t)context.relay->is_on();
+    //     uint8_t data[] = {status};
+    //     send_can_message(0x100, data, sizeof(data));
+    //     context.send_update_timer = current_time;
+    // }
 
     button_test("Test", &context.test);
 }
@@ -72,10 +93,10 @@ static void on_can_message(uint32_t can_id, uint8_t* data, size_t len)
 {
     printf("Got CAN Message: 0x%x\n", can_id);
 
-    if (send_can_message(0x200, nullptr, 0))
-        printf("Sent CAN Message: Success\n");
-    else
-        printf("Sent CAN Message: Failed\n");
+    // if (send_can_message(0x200, nullptr, 0))
+    //     printf("Sent CAN Message: Success\n");
+    // else
+    //     printf("Sent CAN Message: Failed\n");
 }
 
 DEFINE_CMD(change_first_relay)
