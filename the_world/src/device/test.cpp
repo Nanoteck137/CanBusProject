@@ -9,7 +9,9 @@ struct Context
     PhysicalControl* relay;
     PhysicalControl* backup_lamps;
     StatusLight light;
-    Button test;
+    Button button;
+
+    bool test;
 
     uint64_t send_update_timer;
 
@@ -54,33 +56,30 @@ void update(DeviceContext* device)
     uint64_t current_time = time_us_64();
 
     bool state = device->lines[2].get();
-    context.test.update(state);
+    context.button.update(state);
     context.light.update();
 
-    if (context.test.is_single_click())
+    if (context.button.is_single_click())
     {
         context.relay->toggle();
         context.update_status();
-
-        uint8_t data[] = {0x01, 0x00, context.relay->is_on()};
-        send_can_message(0x100, data, sizeof(data));
     }
 
-    if (context.test.is_long_click())
+    if (context.button.is_long_click())
     {
-        uint8_t data[] = {0x01, 0x01};
-        send_can_message(0x100, data, sizeof(data));
+        context.test = !context.test;
     }
 
-    // if (current_time - context.send_update_timer > 100 * 1000)
-    // {
-    //     uint8_t status = (uint8_t)context.relay->is_on();
-    //     uint8_t data[] = {status};
-    //     send_can_message(0x100, data, sizeof(data));
-    //     context.send_update_timer = current_time;
-    // }
+    if (current_time - context.send_update_timer > 100 * 1000)
+    {
+        uint8_t status =
+            (uint8_t)context.test << 1 | (uint8_t)context.relay->is_on() << 0;
+        uint8_t data[] = {status};
+        send_can_message(0x100, data, sizeof(data));
+        context.send_update_timer = current_time;
+    }
 
-    button_test("Test", &context.test);
+    button_test("Button", &context.button);
 }
 
 void get_status(uint8_t* buffer)
