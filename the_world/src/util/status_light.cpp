@@ -68,6 +68,9 @@ void StatusLight::update()
 
 void StatusLight::blink(uint64_t blink_time)
 {
+    if (m_state == StatusLightState::Blink)
+        return;
+
     set_state(StatusLightState::Blink);
     m_blink_time = blink_time;
 }
@@ -82,6 +85,9 @@ void StatusLight::blink_toggle(uint64_t blink_time)
 
 void StatusLight::blink_count(uint64_t blink_time, uint32_t blink_count)
 {
+    if (m_state == StatusLightState::BlinkCount)
+        return;
+
     set_state(StatusLightState::BlinkCount);
     m_blink_time = blink_time;
     m_blink_count = blink_count;
