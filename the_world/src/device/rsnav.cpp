@@ -30,7 +30,7 @@ static void update(DeviceContext* device)
     context.light.update();
     if (context.status.is_reverse_camera_on)
     {
-        context.light.blink_count(250 * 1000, 4);
+        context.light.blink(250 * 1000);
     }
     else
     {
@@ -54,8 +54,20 @@ static void on_can_message(uint32_t can_id, uint8_t* data, size_t len)
     // }
     // printf("]\n");
 
+    printf("CAN: 0x%x\n", data[0]);
     context.status.is_reverse_lights_on = (data[0] & 0x1) > 0;
     context.status.is_reverse_camera_on = (data[0] & 0x2) > 0;
+}
+
+DEFINE_CMD(test)
+{
+    EXPECT_NUM_PARAMS(1);
+
+    uint8_t c = GET_PARAM(0);
+
+    uint8_t data[] = {0x00, c};
+    send_can_message(0x101, data, sizeof(data));
+    return ErrorCode::Success;
 }
 
 const DeviceSpec spec = {
@@ -75,6 +87,7 @@ const DeviceSpec spec = {
 
     .funcs =
         {
+            test,
             nullptr, // LAST
         },
 };
