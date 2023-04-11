@@ -1,11 +1,10 @@
-use std::io::{ErrorKind, Write};
-use std::sync::atomic::AtomicU8;
+use std::io::{ErrorKind, Read, Write};
+use std::os::unix::net::UnixStream;
 
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use clap::{Parser, Subcommand};
 use num_traits::{FromPrimitive, ToPrimitive};
 use tusk::{DeviceType, ErrorCode, PacketType, PACKET_START};
-
-static PID: AtomicU8 = AtomicU8::new(1);
 
 #[derive(Debug)]
 enum Command {
@@ -80,6 +79,11 @@ enum Action {
 
         cmd: String,
     },
+
+    RunSock {
+        path: String,
+        cmd: String,
+    },
 }
 
 #[derive(Debug)]
@@ -104,103 +108,50 @@ impl Packet {
     }
 }
 
-fn get_next_packet(port: &mut Box<dyn serialport::SerialPort>) -> Packet {
-    let mut pid = None;
-    let mut typ = None;
-    let mut data_len = None;
-    let data;
-    let checksum;
+fn get_next_packet<R>(reader: &mut R) -> Packet
+where
+    R: Read,
+{
+    let pid = reader.read_u8().unwrap();
 
-    loop {
-        // Read the header of the packet
-        if port.bytes_to_read().unwrap() >= 3 {
-            let mut buf = [0; 3];
-            if let Ok(_) = port.read_exact(&mut buf) {
-                pid = Some(buf[0]);
-                typ = Some(buf[1]);
-                data_len = Some(buf[2] as u32);
-            }
-        }
+    let typ = reader.read_u8().unwrap();
+    let typ = PacketType::from_u8(typ).unwrap();
 
-        if typ.is_some() {
-            assert!(pid.is_some());
-            assert!(typ.is_some());
-            assert!(data_len.is_some());
+    let data_len = reader.read_u8().unwrap();
 
-            loop {
-                if port.bytes_to_read().unwrap() >= data_len.unwrap() {
-                    let mut buf = vec![0; data_len.unwrap() as usize];
-                    if let Ok(_) = port.read_exact(&mut buf) {
-                        data = Some(buf);
-                        break;
-                    }
-                }
-            }
+    let mut data = vec![0; data_len as usize];
+    reader.read_exact(&mut data).unwrap();
 
-            assert!(data.is_some());
-
-            loop {
-                if port.bytes_to_read().unwrap() >= 2 {
-                    let mut buf = [0; 2];
-                    if let Ok(_) = port.read_exact(&mut buf) {
-                        let a = buf[0] as u16;
-                        let b = buf[1] as u16;
-                        checksum = Some(b << 8 | a);
-                        break;
-                    }
-                }
-            }
-
-            assert!(checksum.is_some());
-
-            break;
-        }
-    }
+    let checksum = reader.read_u16::<LittleEndian>().unwrap();
 
     return Packet {
-        pid: pid.unwrap(),
-        typ: PacketType::try_from(typ.unwrap()).unwrap(),
-        data: data.unwrap(),
-        checksum: checksum.unwrap(),
+        pid,
+        typ,
+        data,
+        checksum,
     };
 }
 
-fn send_packet(
-    port: &mut Box<dyn serialport::SerialPort>,
-    typ: PacketType,
-    data: &[u8],
-) {
-    let mut buf = Vec::new();
+fn send_packet<W>(writer: &mut W, typ: PacketType, data: &[u8])
+where
+    W: Write,
+{
+    writer.write_u8(PACKET_START).unwrap();
+    writer.write_u8(0).unwrap(); // PID
+    writer.write_u8(typ.to_u8().unwrap()).unwrap();
 
-    let pid = PID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    // TODO(patrik): Check data.len()
+    writer.write_u8(data.len() as u8).unwrap();
+    writer.write(data).unwrap();
 
-    buf.push(PACKET_START);
-    buf.push(pid);
-    buf.push(typ.to_u8().unwrap());
-
-    // assert!(data.len() < 28);
-    buf.push(data.len() as u8);
-    buf.extend_from_slice(data);
-
-    // let checksum = tusk_rs::checksum(&buf[1..]);
-    let checksum = 0u16;
-    buf.extend_from_slice(&checksum.to_le_bytes());
-
-    match port.write(&buf) {
-        Ok(n) => {
-            if n != buf.len() {
-                eprintln!("Failed to write buffer?");
-            }
-        }
-        Err(e) => eprintln!("Failed to send packet: {:?}", e),
-    }
+    writer.write_u16::<LittleEndian>(0).unwrap();
 }
 
-fn send_empty_packet(
-    port: &mut Box<dyn serialport::SerialPort>,
-    typ: PacketType,
-) {
-    send_packet(port, typ, &[]);
+fn send_empty_packet<W>(writer: &mut W, typ: PacketType)
+where
+    W: Write,
+{
+    send_packet(writer, typ, &[]);
 }
 
 fn run_debug_monitor(port: &String, baudrate: u32) {
@@ -222,13 +173,14 @@ fn run_debug_monitor(port: &String, baudrate: u32) {
     }
 }
 
-fn wait_for_packet(port: &mut Box<dyn serialport::SerialPort>) -> Packet {
+fn wait_for_packet<R>(reader: &mut R) -> Packet
+where
+    R: Read,
+{
     loop {
-        let mut buf = [0; 1];
-        if let Ok(_) = port.read_exact(&mut buf) {
-            if buf[0] == PACKET_START {
-                let packet = get_next_packet(port);
-                return packet;
+        if let Ok(val) = reader.read_u8() {
+            if val == PACKET_START {
+                return get_next_packet(reader);
             }
         }
     }
@@ -299,11 +251,14 @@ impl Identify {
     }
 }
 
-fn run(port: &String, baudrate: u32, cmd: &str) {
-    let mut port = serialport::new(port, baudrate).open().unwrap();
+fn run<P>(port: &mut P, cmd: &str)
+where
+    P: Read + Write,
+{
+    // let mut port = serialport::new(port, baudrate).open().unwrap();
 
-    send_empty_packet(&mut port, PacketType::Identify);
-    let packet = wait_for_packet(&mut port);
+    send_empty_packet(port, PacketType::Identify);
+    let packet = wait_for_packet(port);
     let info = match packet.response() {
         Ok(data) => {
             Identify::parse(data).expect("Failed to parse identify data")
@@ -317,8 +272,8 @@ fn run(port: &String, baudrate: u32, cmd: &str) {
 
     match cmd {
         Command::Identify => {
-            send_empty_packet(&mut port, PacketType::Identify);
-            let packet = wait_for_packet(&mut port);
+            send_empty_packet(port, PacketType::Identify);
+            let packet = wait_for_packet(port);
             match packet.response() {
                 Ok(data) => println!("Identity: {:?}", Identify::parse(data)),
                 Err(error_code) => eprintln!("Error: {:?}", error_code),
@@ -326,8 +281,8 @@ fn run(port: &String, baudrate: u32, cmd: &str) {
         }
 
         Command::Status => {
-            send_empty_packet(&mut port, PacketType::Status);
-            let packet = wait_for_packet(&mut port);
+            send_empty_packet(port, PacketType::Status);
+            let packet = wait_for_packet(port);
             match packet.response() {
                 Ok(data) => println!("Status: {:?}", data),
                 Err(error_code) => eprintln!("Error: {:?}", error_code),
@@ -339,8 +294,8 @@ fn run(port: &String, baudrate: u32, cmd: &str) {
             data.push(cmd);
             data.extend_from_slice(&params);
 
-            send_packet(&mut port, PacketType::Command, &data);
-            let packet = wait_for_packet(&mut port);
+            send_packet(port, PacketType::Command, &data);
+            let packet = wait_for_packet(port);
             match packet.response() {
                 Ok(_data) => {}
                 Err(error_code) => eprintln!("Error: {:?}", error_code),
@@ -367,6 +322,15 @@ fn main() {
             port,
             baudrate,
             cmd,
-        } => run(&port, baudrate, &cmd),
+        } => {
+            let mut port = serialport::new(port, baudrate).open().unwrap();
+            run(&mut port, &cmd)
+        }
+
+        Action::RunSock { path, cmd } => {
+            let mut sock = UnixStream::connect(path)
+                .expect("Failed to connect to socket");
+            run(&mut sock, &cmd);
+        }
     }
 }

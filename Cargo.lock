@@ -163,6 +163,7 @@ dependencies = [
 name = "dio"
 version = "0.1.0"
 dependencies = [
+ "byteorder",
  "clap",
  "num-traits",
  "serial2",
