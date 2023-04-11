@@ -4,4 +4,5 @@ members = [
     "dio",
     "ora",
     "tusk",
+    "silver_chariot",
 ]

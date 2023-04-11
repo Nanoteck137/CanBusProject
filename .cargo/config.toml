@@ -1,3 +1,4 @@
 [alias]
 dio = "run -p dio --"
 ora = "run -p ora --"
+silver = "run -p silver_chariot --"
