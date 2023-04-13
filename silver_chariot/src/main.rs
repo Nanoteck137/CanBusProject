@@ -1,9 +1,7 @@
 use std::io::{ErrorKind, Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
-use std::sync::mpsc::Receiver;
 use std::sync::RwLock;
-use std::thread;
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use num_traits::ToPrimitive;
