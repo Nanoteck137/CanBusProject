@@ -4,7 +4,7 @@ use std::os::unix::net::UnixStream;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use clap::{Parser, Subcommand};
 use num_traits::{FromPrimitive, ToPrimitive};
-use tusk::{DeviceType, ErrorCode, PacketType, PACKET_START};
+use tusk::{ErrorCode, PacketType, PACKET_START};
 
 #[derive(Debug)]
 enum Command {
