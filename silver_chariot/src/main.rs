@@ -1,13 +1,17 @@
-use std::collections::HashMap;
-use std::io::{BufRead, ErrorKind, Read, Write};
+use std::io::{ErrorKind, Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
+use std::sync::mpsc::Receiver;
+use std::sync::RwLock;
+use std::thread;
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use num_traits::ToPrimitive;
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
 use tusk::{ErrorCode, PacketType, PACKET_START};
+
+static STATE: RwLock<State> = RwLock::new(State::new());
 
 #[derive(Debug)]
 struct Packet {
@@ -112,7 +116,14 @@ fn handle_status<W>(writer: &mut W, packet: &Packet)
 where
     W: Write,
 {
-    let data = [0; 16];
+    let mut data = [0; 16];
+
+    let state = { STATE.read().expect("Failed to get read lock").clone() };
+
+    data[0] = (state.backup_lights as u8) << 2 |
+        (state.backup_camera as u8) << 1 |
+        (state.trunk_lamp as u8) << 0;
+
     write_response_packet(writer, packet.pid, ErrorCode::Success, &data);
 }
 
@@ -178,6 +189,9 @@ fn handle_connection(mut stream: UnixStream) {
 enum Command {
     SetControl { name: String, val: bool },
     Status,
+
+    ListCommands,
+    ListControls,
 }
 
 fn parse_command(cmd: &str) -> Option<Command> {
@@ -197,8 +211,8 @@ fn parse_command(cmd: &str) -> Option<Command> {
             let name = params[0].to_string();
             let val = params[1];
             let val = match val {
-                "on" => true,
-                "off" => false,
+                "on" | "true" => true,
+                "off" | "false" => false,
                 _ => return None,
             };
 
@@ -213,11 +227,27 @@ fn parse_command(cmd: &str) -> Option<Command> {
             Some(Command::Status)
         }
 
+        "commands" | "help" => {
+            if params.len() != 0 {
+                return None;
+            }
+
+            Some(Command::ListCommands)
+        }
+
+        "controls" => {
+            if params.len() != 0 {
+                return None;
+            }
+
+            Some(Command::ListControls)
+        }
+
         _ => None,
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug)]
 struct State {
     trunk_lamp: bool,
     backup_camera: bool,
@@ -225,6 +255,14 @@ struct State {
 }
 
 impl State {
+    const fn new() -> Self {
+        Self {
+            trunk_lamp: false,
+            backup_camera: false,
+            backup_lights: false,
+        }
+    }
+
     fn set_control(&mut self, name: &str, val: bool) -> Option<()> {
         match name {
             "trunk_lamp" => {
@@ -245,11 +283,41 @@ impl State {
             _ => None,
         }
     }
+
+    fn status(&self) {
+        println!("  trunk_lamp = {}", self.trunk_lamp);
+        println!("  backup_camera = {}", self.backup_camera);
+        println!("  backup_lights = {}", self.backup_lights);
+    }
+
+    fn list_controls(&self) {
+        println!("  trunk_lamp");
+        println!("  backup_camera");
+        println!("  backup_lights");
+    }
 }
 
-fn main() {
-    let mut state = State::default();
+fn run_socket() {
+    let path = Path::new("/tmp/silver_chariot.sock");
 
+    if path.exists() {
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    let listener = UnixListener::bind(path).unwrap();
+
+    for stream in listener.incoming() {
+        match stream {
+            Ok(stream) => {
+                handle_connection(stream);
+            }
+
+            Err(_) => {}
+        }
+    }
+}
+
+fn run() {
     let mut rl = DefaultEditor::new().unwrap();
 
     if rl.load_history("history.txt").is_err() {
@@ -260,7 +328,42 @@ fn main() {
         match rl.readline(">> ") {
             Ok(line) => {
                 rl.add_history_entry(&line).unwrap();
-                println!("Line: {:?}", line);
+
+                let cmd = if let Some(cmd) = parse_command(&line) {
+                    cmd
+                } else {
+                    println!("Failed to parse command");
+                    continue;
+                };
+
+                let mut state =
+                    { STATE.read().expect("Failed to get read lock").clone() };
+
+                match cmd {
+                    Command::SetControl { name, val } => {
+                        state.set_control(&name, val).expect("No control");
+                    }
+
+                    Command::Status => {
+                        state.status();
+                    }
+
+                    Command::ListCommands => {
+                        println!(
+                            "  control <name> <on/off/true/false> - Set \
+                             Control state"
+                        );
+                        println!("  status - List current control status");
+                        println!("  commands - List all commands");
+                        println!("  controls - List all controls");
+                    }
+
+                    Command::ListControls => {
+                        state.list_controls();
+                    }
+                }
+
+                *STATE.write().expect("Failed to get write lock") = state;
             }
 
             Err(ReadlineError::Interrupted) => {
@@ -275,41 +378,15 @@ fn main() {
 
             Err(e) => println!("Error: {:?}", e),
         }
-
-        // let mut line = String::new();
-        // stdin.lock().read_line(&mut line).unwrap();
-        //
-        // let line = line.trim();
-        // println!("Line: {:?}", line.trim());
-        //
-        // let cmd = parse_command(line).expect("Failed to parse command");
-        // println!("Cmd: {:?}", cmd);
-        //
-        // match cmd {
-        //     Command::SetControl { name, val } => {
-        //         state.set_control(&name, val).expect("No control");
-        //     }
-        //
-        //     Command::Status => {
-        //         println!("State: {:?}", state);
-        //     }
-        // }
     }
 
     rl.save_history("history.txt").unwrap();
+}
 
-    // let path = Path::new("/tmp/silver_chariot.sock");
-    //
-    // if path.exists() {
-    //     std::fs::remove_file(&path).unwrap();
-    // }
-    //
-    // let listener = UnixListener::bind(path).unwrap();
-    //
-    // loop {
-    //     match listener.accept() {
-    //         Ok((stream, _addr)) => handle_connection(stream),
-    //         Err(e) => eprintln!("Error: {:?}", e),
-    //     }
-    // }
+fn main() {
+    std::thread::spawn(move || {
+        run_socket();
+    });
+
+    run();
 }
