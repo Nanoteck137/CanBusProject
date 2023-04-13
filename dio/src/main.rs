@@ -1,4 +1,5 @@
 use std::io::{ErrorKind, Read, Write};
+use std::net::TcpStream;
 use std::os::unix::net::UnixStream;
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
@@ -82,6 +83,11 @@ enum Action {
 
     RunSock {
         path: String,
+        cmd: String,
+    },
+
+    RunTcp {
+        addr: String,
         cmd: String,
     },
 }
@@ -322,6 +328,12 @@ fn main() {
         Action::RunSock { path, cmd } => {
             let mut sock = UnixStream::connect(path)
                 .expect("Failed to connect to socket");
+            run(&mut sock, &cmd);
+        }
+
+        Action::RunTcp { addr, cmd } => {
+            let mut sock =
+                TcpStream::connect(addr).expect("Failed to connect to TCP");
             run(&mut sock, &cmd);
         }
     }
