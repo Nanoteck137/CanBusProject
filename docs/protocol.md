@@ -1,4 +1,4 @@
-# Protocol
+# Protocol (Speedwagon)
 
 ## Base Packet
 
