@@ -1,4 +1,5 @@
 use std::io::{ErrorKind, Read, Write};
+use std::net::TcpListener;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
 use std::sync::RwLock;
@@ -143,7 +144,10 @@ where
     write_response_packet(writer, packet.pid, ErrorCode::Success, &[]);
 }
 
-fn handle_connection(mut stream: UnixStream) {
+fn handle_connection<S>(mut stream: S)
+where
+    S: Read + Write,
+{
     loop {
         match stream.read_u8() {
             Ok(val) => {
@@ -175,7 +179,6 @@ fn handle_connection(mut stream: UnixStream) {
 
             Err(e) => {
                 if e.kind() == ErrorKind::UnexpectedEof {
-                    println!("Disconnecting???");
                     return;
                 }
             }
@@ -296,23 +299,34 @@ impl State {
 }
 
 fn run_socket() {
-    let path = Path::new("/tmp/silver_chariot.sock");
-
-    if path.exists() {
-        std::fs::remove_file(&path).unwrap();
-    }
-
-    let listener = UnixListener::bind(path).unwrap();
+    let listener = TcpListener::bind("0.0.0.0:6969")
+        .expect("Failed to bind TCP listener");
 
     for stream in listener.incoming() {
         match stream {
-            Ok(stream) => {
-                handle_connection(stream);
-            }
+            Ok(stream) => handle_connection(stream),
 
             Err(_) => {}
         }
     }
+
+    // let path = Path::new("/tmp/silver_chariot.sock");
+    //
+    // if path.exists() {
+    //     std::fs::remove_file(&path).unwrap();
+    // }
+    //
+    // let listener = UnixListener::bind(path).unwrap();
+    //
+    // for stream in listener.incoming() {
+    //     match stream {
+    //         Ok(stream) => {
+    //             handle_connection(stream);
+    //         }
+    //
+    //         Err(_) => {}
+    //     }
+    // }
 }
 
 fn run() {
