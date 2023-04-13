@@ -45,7 +45,8 @@
 | ------------ | ------------ | -------- |
 | VERSION      | 0            | 2        |
 | NUM_CMDS     | 2            | 1        |
-| NAME         | 3            | 32       | 
+| NAME_LEN     | 3            | 1        |
+| NAME         | 3            | NAME_LEN | 
 
 ### Status (RESPONSE_DATA)
 
