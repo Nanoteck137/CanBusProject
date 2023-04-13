@@ -5,6 +5,8 @@ use std::path::Path;
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use num_traits::ToPrimitive;
+use rustyline::error::ReadlineError;
+use rustyline::DefaultEditor;
 use tusk::{ErrorCode, PacketType, PACKET_START};
 
 #[derive(Debug)]
@@ -175,6 +177,7 @@ fn handle_connection(mut stream: UnixStream) {
 #[derive(Debug)]
 enum Command {
     SetControl { name: String, val: bool },
+    Status,
 }
 
 fn parse_command(cmd: &str) -> Option<Command> {
@@ -201,6 +204,15 @@ fn parse_command(cmd: &str) -> Option<Command> {
 
             Some(Command::SetControl { name, val })
         }
+
+        "status" => {
+            if params.len() != 0 {
+                return None;
+            }
+
+            Some(Command::Status)
+        }
+
         _ => None,
     }
 }
@@ -238,24 +250,53 @@ impl State {
 fn main() {
     let mut state = State::default();
 
-    let stdin = std::io::stdin();
+    let mut rl = DefaultEditor::new().unwrap();
 
-    let mut line = String::new();
-    stdin.lock().read_line(&mut line).unwrap();
-
-    let line = line.trim();
-    println!("Line: {:?}", line.trim());
-
-    let cmd = parse_command(line).expect("Failed to parse command");
-    println!("Cmd: {:?}", cmd);
-
-    match cmd {
-        Command::SetControl { name, val } => {
-            state.set_control(&name, val).expect("No control");
-        }
+    if rl.load_history("history.txt").is_err() {
+        println!("No previous history.");
     }
 
-    println!("State: {:?}", state);
+    loop {
+        match rl.readline(">> ") {
+            Ok(line) => {
+                rl.add_history_entry(&line).unwrap();
+                println!("Line: {:?}", line);
+            }
+
+            Err(ReadlineError::Interrupted) => {
+                println!("CTRL-C");
+                break;
+            }
+
+            Err(ReadlineError::Eof) => {
+                println!("CTRL-D");
+                break;
+            }
+
+            Err(e) => println!("Error: {:?}", e),
+        }
+
+        // let mut line = String::new();
+        // stdin.lock().read_line(&mut line).unwrap();
+        //
+        // let line = line.trim();
+        // println!("Line: {:?}", line.trim());
+        //
+        // let cmd = parse_command(line).expect("Failed to parse command");
+        // println!("Cmd: {:?}", cmd);
+        //
+        // match cmd {
+        //     Command::SetControl { name, val } => {
+        //         state.set_control(&name, val).expect("No control");
+        //     }
+        //
+        //     Command::Status => {
+        //         println!("State: {:?}", state);
+        //     }
+        // }
+    }
+
+    rl.save_history("history.txt").unwrap();
 
     // let path = Path::new("/tmp/silver_chariot.sock");
     //
