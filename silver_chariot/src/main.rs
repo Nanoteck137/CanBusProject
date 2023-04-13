@@ -82,6 +82,46 @@ where
     Some(())
 }
 
+fn handle_identify<W>(writer: &mut W, packet: &Packet)
+where
+    W: Write,
+{
+    let mut data = [0; 35];
+    data[0] = 0; // VERSION
+    data[1] = 0; // VERSION
+    data[3] = 0; // NUM_CMDS
+    let name = "Testing";
+    data[3..3 + name.len()].copy_from_slice(name.as_bytes());
+
+    write_response_packet(writer, packet.pid, ErrorCode::Success, &data);
+}
+
+fn handle_status<W>(writer: &mut W, packet: &Packet)
+where
+    W: Write,
+{
+    let data = [0; 16];
+    write_response_packet(writer, packet.pid, ErrorCode::Success, &data);
+}
+
+fn handle_command<W>(writer: &mut W, packet: &Packet)
+where
+    W: Write,
+{
+    let cmd_index = packet.data[0];
+    let params = &packet.data[1..];
+    println!("Handle Command: {} -> {:?}", cmd_index, params);
+
+    write_response_packet(writer, packet.pid, ErrorCode::InvalidCommand, &[]);
+}
+
+fn handle_ping<W>(writer: &mut W, packet: &Packet)
+where
+    W: Write,
+{
+    write_response_packet(writer, packet.pid, ErrorCode::Success, &[]);
+}
+
 fn handle_connection(mut stream: UnixStream) {
     loop {
         match stream.read_u8() {
@@ -90,16 +130,24 @@ fn handle_connection(mut stream: UnixStream) {
                     let packet = parse_packet(&mut stream).unwrap();
 
                     match packet.typ {
-                        PacketType::Ping => {
+                        PacketType::Identify => {
+                            handle_identify(&mut stream, &packet);
+                        }
+                        PacketType::Status => {
+                            handle_status(&mut stream, &packet);
+                        }
+                        PacketType::Command => {
+                            handle_command(&mut stream, &packet);
+                        }
+                        PacketType::Ping => handle_ping(&mut stream, &packet),
+                        PacketType::Update | PacketType::Response => {
                             write_response_packet(
                                 &mut stream,
                                 packet.pid,
-                                ErrorCode::Success,
+                                ErrorCode::InvalidPacketType,
                                 &[],
                             );
                         }
-
-                        _ => todo!(),
                     }
                 }
             }
