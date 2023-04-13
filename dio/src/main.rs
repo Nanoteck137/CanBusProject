@@ -220,26 +220,22 @@ struct Identify {
 
 impl Identify {
     fn parse(data: &[u8]) -> Option<Self> {
-        if data.len() < 2 + 1 + 32 {
+        if data.len() < 2 + 1 + 1 {
             return None;
         }
 
         let version = u16::from_le_bytes(data[0..2].try_into().ok()?);
         let num_cmds = data[2] as usize;
-        let name = &data[3..];
+        let name_len = data[3] as usize;
 
-        let find_zero = |a: &[u8]| {
-            for i in 0..a.len() {
-                if a[i] == 0 {
-                    return i;
-                }
-            }
+        let data = &data[4..];
 
-            a.len()
-        };
+        if data.len() < name_len {
+            return None;
+        }
 
-        let index = find_zero(name);
-        let name = std::str::from_utf8(&name[0..index]).ok()?;
+        let name = &data[0..name_len];
+        let name = std::str::from_utf8(name).ok()?;
 
         Some(Identify {
             version: Version(version),
