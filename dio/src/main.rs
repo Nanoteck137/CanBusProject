@@ -27,7 +27,7 @@ fn parse_u8(s: &str) -> Option<u8> {
     }
 }
 
-fn parse_cmd(cmd: &str, _device_type: DeviceType) -> Option<Command> {
+fn parse_cmd(cmd: &str) -> Option<Command> {
     let mut split = cmd.split(' ');
 
     let cmd = split.next()?;
@@ -214,7 +214,7 @@ impl std::fmt::Debug for Version {
 #[derive(Clone, Debug)]
 struct Identify {
     version: Version,
-    typ: DeviceType,
+    num_cmds: usize,
     name: String,
 }
 
@@ -225,9 +225,7 @@ impl Identify {
         }
 
         let version = u16::from_le_bytes(data[0..2].try_into().ok()?);
-        let typ = data[2];
-        // TODO(patrik): Better error
-        let typ = DeviceType::from_u8(typ).expect("Failed to convert type");
+        let num_cmds = data[2] as usize;
         let name = &data[3..];
 
         let find_zero = |a: &[u8]| {
@@ -245,7 +243,7 @@ impl Identify {
 
         Some(Identify {
             version: Version(version),
-            typ,
+            num_cmds,
             name: name.to_string(),
         })
     }
@@ -255,20 +253,18 @@ fn run<P>(port: &mut P, cmd: &str)
 where
     P: Read + Write,
 {
-    // let mut port = serialport::new(port, baudrate).open().unwrap();
+    // send_empty_packet(port, PacketType::Identify);
+    // let packet = wait_for_packet(port);
+    // let info = match packet.response() {
+    //     Ok(data) => {
+    //         Identify::parse(data).expect("Failed to parse identify data")
+    //     }
+    //     Err(error_code) => {
+    //         panic!("Failed to identify device: {:?}", error_code)
+    //     }
+    // };
 
-    send_empty_packet(port, PacketType::Identify);
-    let packet = wait_for_packet(port);
-    let info = match packet.response() {
-        Ok(data) => {
-            Identify::parse(data).expect("Failed to parse identify data")
-        }
-        Err(error_code) => {
-            panic!("Failed to identify device: {:?}", error_code)
-        }
-    };
-
-    let cmd = parse_cmd(cmd, info.typ).expect("Failed to parse command");
+    let cmd = parse_cmd(cmd).expect("Failed to parse command");
 
     match cmd {
         Command::Identify => {
