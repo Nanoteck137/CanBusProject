@@ -1,7 +1,5 @@
-use std::io::{ErrorKind, Read, Write};
+use std::io::{Cursor, Read, Write};
 use std::net::TcpListener;
-use std::os::unix::net::{UnixListener, UnixStream};
-use std::path::Path;
 use std::sync::RwLock;
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
@@ -11,6 +9,114 @@ use rustyline::DefaultEditor;
 use tusk::{ErrorCode, PacketType, PACKET_START};
 
 static STATE: RwLock<State> = RwLock::new(State::new());
+
+// NOTE(patrik):
+//   Front
+//   - LED BAR
+//   - LED BAR (EXTRA LIGHT)
+//   - HIGH BEAM
+//   - IS LED BAR ACTIVE (SYNCED TO HIGH BEAM)
+//   Back
+//   - Reverse Camera
+//   - Reverse Lights
+//   - Trunk Lights
+//   - Reverse
+//   - Is Reverse Lights Active (SYNCED TO REVERSE)
+
+#[derive(Clone, Default, Debug)]
+struct State {
+    led_bar: bool,
+    led_bar_low_mode: bool,
+    high_beam: bool,
+    led_bar_active: bool,
+
+    reverse_camera: bool,
+    reverse_lights: bool,
+    reverse: bool,
+    reverse_lights_active: bool,
+    trunk_lights: bool,
+}
+
+impl State {
+    const fn new() -> Self {
+        Self {
+            led_bar: false,
+            led_bar_low_mode: false,
+            high_beam: false,
+            led_bar_active: false,
+
+            reverse_camera: false,
+            reverse_lights: false,
+            reverse: false,
+            reverse_lights_active: false,
+            trunk_lights: false,
+        }
+    }
+
+    fn set_control(&mut self, name: &str, val: bool) -> Option<()> {
+        match name {
+            "led_bar" => self.led_bar = val,
+            "led_bar_low_mode" => self.led_bar_low_mode = val,
+            "high_beam" => self.high_beam = val,
+            "led_bar_active" => self.led_bar_active = val,
+
+            "reverse_camera" => self.reverse_camera = val,
+            "reverse_lights" => self.reverse_lights = val,
+            "reverse" => self.reverse = val,
+            "reverse_lights_active" => self.reverse_lights_active = val,
+            "trunk_lights" => self.trunk_lights = val,
+
+            _ => return None,
+        };
+
+        Some(())
+    }
+
+    fn status(&self) {
+        println!("  led_bar = {}", self.led_bar);
+        println!("  led_bar_low_mode = {}", self.led_bar_low_mode);
+        println!("  high_beam = {}", self.high_beam);
+        println!("  led_bar_active = {}", self.led_bar_active);
+
+        println!("  reverse_camera = {}", self.reverse_camera);
+        println!("  reverse_lights = {}", self.reverse_lights);
+        println!("  reverse = {}", self.reverse);
+        println!("  reverse_lights_active = {}", self.reverse_lights_active);
+        println!("  trunk_lights = {}", self.trunk_lights);
+    }
+
+    fn list_controls(&self) {
+        println!("  led_bar");
+        println!("  led_bar_low_mode");
+        println!("  high_beam");
+        println!("  led_bar_active");
+
+        println!("  reverse_camera");
+        println!("  reverse_lights");
+        println!("  reverse");
+        println!("  reverse_lights_active");
+        println!("  trunk_lights");
+    }
+
+    fn pack<W>(&self, writer: &mut W) -> std::io::Result<()>
+    where
+        W: Write,
+    {
+        let b = (self.led_bar as u8) << 0 |
+            (self.led_bar_low_mode as u8) << 1 |
+            (self.high_beam as u8) << 2 |
+            (self.led_bar_active as u8) << 3;
+        writer.write_u8(b)?;
+
+        let b = (self.reverse_camera as u8) << 0 |
+            (self.reverse_lights as u8) << 1 |
+            (self.reverse as u8) << 2 |
+            (self.reverse_lights_active as u8) << 3 |
+            (self.trunk_lights as u8) << 4;
+        writer.write_u8(b)?;
+        Ok(())
+    }
+}
 
 #[derive(Debug)]
 struct Packet {
@@ -82,6 +188,7 @@ where
     let len = data.len() + 1;
     writer.write_u8(len as u8).ok()?;
     writer.write_u8(error_code.to_u8()?).ok()?;
+    writer.flush().unwrap();
     writer.write(data).ok()?;
     writer.write_u16::<LittleEndian>(0).ok()?;
 
@@ -94,7 +201,7 @@ fn make_version(major: u8, minor: u8, patch: u8) -> u16 {
         (patch & 0xf) as u16
 }
 
-fn handle_identify<W>(writer: &mut W, packet: &Packet)
+fn handle_identify<W>(writer: &mut W, packet: &Packet) -> Option<()>
 where
     W: Write,
 {
@@ -102,39 +209,78 @@ where
 
     let version = make_version(2, 1, 1);
     data.extend_from_slice(&version.to_le_bytes());
-    data.push(10); // NUM_CMDS
+    data.push(1); // NUM_CMDS
 
     let name = "Testing";
     data.push(name.len() as u8);
     data.extend_from_slice(name.as_bytes());
 
-    write_response_packet(writer, packet.pid, ErrorCode::Success, &data);
+    write_response_packet(writer, packet.pid, ErrorCode::Success, &data)?;
+
+    Some(())
 }
 
 fn handle_status<W>(writer: &mut W, packet: &Packet)
 where
     W: Write,
 {
-    let mut data = [0; 16];
+    let mut cursor = Cursor::new([0; 16]);
 
     let state = { STATE.read().expect("Failed to get read lock").clone() };
 
-    data[0] = (state.backup_lights as u8) << 2 |
-        (state.backup_camera as u8) << 1 |
-        (state.trunk_lamp as u8) << 0;
+    state.pack(&mut cursor).unwrap();
 
-    write_response_packet(writer, packet.pid, ErrorCode::Success, &data);
+    write_response_packet(
+        writer,
+        packet.pid,
+        ErrorCode::Success,
+        &cursor.into_inner(),
+    );
 }
 
-fn handle_command<W>(writer: &mut W, packet: &Packet)
+fn handle_command<W>(writer: &mut W, packet: &Packet) -> Option<()>
 where
     W: Write,
 {
     let cmd_index = packet.data[0];
     let params = &packet.data[1..];
-    println!("Handle Command: {} -> {:?}", cmd_index, params);
 
-    write_response_packet(writer, packet.pid, ErrorCode::InvalidCommand, &[]);
+    match cmd_index {
+        0x00 => {
+            if params.len() < 1 {
+                write_response_packet(
+                    writer,
+                    packet.pid,
+                    ErrorCode::InsufficientFunctionParameters,
+                    &[],
+                )?;
+
+                return Some(());
+            }
+
+            let mut state =
+                STATE.write().expect("Failed to get write lock for state");
+            // state.trunk_lamp = (params[0] & (1 << 0)) > 0;
+            // state.backup_camera = (params[0] & (1 << 1)) > 0;
+            // state.backup_lights = (params[0] & (1 << 2)) > 0;
+
+            write_response_packet(
+                writer,
+                packet.pid,
+                ErrorCode::Success,
+                &[],
+            )?;
+        }
+
+        _ => write_response_packet(
+            writer,
+            packet.pid,
+            ErrorCode::InvalidCommand,
+            &[],
+        )?,
+    }
+
+    Some(())
 }
 
 fn handle_ping<W>(writer: &mut W, packet: &Packet)
@@ -177,10 +323,9 @@ where
                 }
             }
 
-            Err(e) => {
-                if e.kind() == ErrorKind::UnexpectedEof {
-                    return;
-                }
+            Err(_e) => {
+                println!("Disconnect");
+                return;
             }
         }
     }
@@ -190,9 +335,12 @@ where
 enum Command {
     SetControl { name: String, val: bool },
     Status,
+    RawStatus,
 
     ListCommands,
     ListControls,
+
+    Exit,
 }
 
 fn parse_command(cmd: &str) -> Option<Command> {
@@ -228,6 +376,14 @@ fn parse_command(cmd: &str) -> Option<Command> {
             Some(Command::Status)
         }
 
+        "rawstatus" => {
+            if params.len() != 0 {
+                return None;
+            }
+
+            Some(Command::RawStatus)
+        }
+
         "commands" | "help" => {
             if params.len() != 0 {
                 return None;
@@ -244,57 +400,15 @@ fn parse_command(cmd: &str) -> Option<Command> {
             Some(Command::ListControls)
         }
 
+        "exit" | "quit" | "q" => {
+            if params.len() != 0 {
+                return None;
+            }
+
+            Some(Command::Exit)
+        }
+
         _ => None,
-    }
-}
-
-#[derive(Clone, Default, Debug)]
-struct State {
-    trunk_lamp: bool,
-    backup_camera: bool,
-    backup_lights: bool,
-}
-
-impl State {
-    const fn new() -> Self {
-        Self {
-            trunk_lamp: false,
-            backup_camera: false,
-            backup_lights: false,
-        }
-    }
-
-    fn set_control(&mut self, name: &str, val: bool) -> Option<()> {
-        match name {
-            "trunk_lamp" => {
-                self.trunk_lamp = val;
-                Some(())
-            }
-
-            "backup_camera" => {
-                self.backup_camera = val;
-                Some(())
-            }
-
-            "backup_lights" => {
-                self.backup_lights = val;
-                Some(())
-            }
-
-            _ => None,
-        }
-    }
-
-    fn status(&self) {
-        println!("  trunk_lamp = {}", self.trunk_lamp);
-        println!("  backup_camera = {}", self.backup_camera);
-        println!("  backup_lights = {}", self.backup_lights);
-    }
-
-    fn list_controls(&self) {
-        println!("  trunk_lamp");
-        println!("  backup_camera");
-        println!("  backup_lights");
     }
 }
 
@@ -304,7 +418,10 @@ fn run_socket() {
 
     for stream in listener.incoming() {
         match stream {
-            Ok(stream) => handle_connection(stream),
+            Ok(stream) => {
+                println!("Got Connection");
+                handle_connection(stream);
+            }
 
             Err(_) => {}
         }
@@ -360,18 +477,31 @@ fn run() {
                         state.status();
                     }
 
+                    Command::RawStatus => {
+                        let mut buf = Vec::new();
+                        state.pack(&mut buf).unwrap();
+                        println!("{:#x?}", buf);
+                    }
+
                     Command::ListCommands => {
                         println!(
                             "  control <name> <on/off/true/false> - Set \
                              Control state"
                         );
                         println!("  status - List current control status");
+                        println!(
+                            "  rawstatus - List current raw control status"
+                        );
                         println!("  commands - List all commands");
                         println!("  controls - List all controls");
                     }
 
                     Command::ListControls => {
                         state.list_controls();
+                    }
+
+                    Command::Exit => {
+                        break;
                     }
                 }
 
