@@ -90,6 +90,24 @@ fn generate_tusk_bindings() {
     }
 }
 
+fn generate_speedwagon_bindings() {
+    std::fs::create_dir_all("target/speedwagon").unwrap();
+    let output = "target/speedwagon/speedwagon.h";
+
+    let status = Command::new("cbindgen")
+        .arg("speedwagon")
+        .arg("-o")
+        .arg(output)
+        .status()
+        .unwrap();
+    if !status.success() {
+        panic!(
+            "Failed to generate speedwagon bindings ({})",
+            status.code().unwrap_or_else(|| 0),
+        );
+    }
+}
+
 fn main() {
     let args = Args::parse();
 
@@ -97,10 +115,12 @@ fn main() {
         Action::GenTusk {} => {
             println!("Generating tusk bindings");
             generate_tusk_bindings();
+            generate_speedwagon_bindings();
         }
 
         Action::Firmware { device } => {
             generate_tusk_bindings();
+            generate_speedwagon_bindings();
 
             let name = device;
             let build_path = format!("target/device/{}", name);
