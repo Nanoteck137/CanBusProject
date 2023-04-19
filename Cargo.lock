@@ -180,7 +180,6 @@ dependencies = [
  "serial2",
  "serialport",
  "speedwagon",
- "tusk",
 ]
 
 [[package]]
@@ -434,7 +433,6 @@ dependencies = [
  "clap",
  "serde",
  "serde_json",
- "tusk",
 ]
 
 [[package]]
@@ -624,7 +622,6 @@ dependencies = [
  "num-traits",
  "rustyline",
  "speedwagon",
- "tusk",
 ]
 
 [[package]]
@@ -700,14 +697,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.15",
-]
-
-[[package]]
-name = "tusk"
-version = "0.1.0"
-dependencies = [
- "enum-primitive-derive",
- "num-traits",
 ]
 
 [[package]]
