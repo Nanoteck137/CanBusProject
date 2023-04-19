@@ -2,11 +2,12 @@ use std::io::{Cursor, Read, Write};
 use std::net::TcpListener;
 use std::sync::RwLock;
 
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use num_traits::ToPrimitive;
+use byteorder::{ReadBytesExt, WriteBytesExt};
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
-use tusk::{ErrorCode, PacketType, PACKET_START};
+use speedwagon::{
+    Packet, PacketType, ResponseErrorCode, Version, PACKET_START,
+};
 
 static STATE: RwLock<State> = RwLock::new(State::new());
 
@@ -118,87 +119,19 @@ impl State {
     }
 }
 
-#[derive(Debug)]
-struct Packet {
-    pid: u8,
-    typ: PacketType,
-    data: Vec<u8>,
-}
-
-fn parse_packet(stream: &mut impl Read) -> Option<Packet> {
-    let pid = stream.read_u8().ok()?;
-
-    let typ = stream.read_u8().ok()?;
-    let typ: PacketType = typ.try_into().ok()?;
-
-    let data_len = stream.read_u8().ok()?;
-
-    let mut data = vec![0u8; data_len as usize];
-    stream.read_exact(&mut data).ok()?;
-
-    let _checksum = stream.read_u16::<LittleEndian>();
-
-    Some(Packet { pid, typ, data })
-}
-
-fn write_packet_header<W>(
-    writer: &mut W,
-    pid: u8,
-    typ: PacketType,
-) -> Option<()>
-where
-    W: Write,
-{
-    writer.write_u8(PACKET_START).ok()?;
-    writer.write_u8(pid).ok()?;
-    writer.write_u8(typ.to_u8()?).ok()?;
-
-    Some(())
-}
-
-fn _write_packet<W>(
-    writer: &mut W,
-    pid: u8,
-    typ: PacketType,
-    data: &[u8],
-) -> Option<()>
-where
-    W: Write,
-{
-    write_packet_header(writer, pid, typ);
-
-    writer.write_u8(data.len() as u8).ok()?;
-    writer.write(data).ok()?;
-    writer.write_u16::<LittleEndian>(0).ok()?;
-
-    Some(())
-}
-
 fn write_response_packet<W>(
     writer: &mut W,
     pid: u8,
-    error_code: ErrorCode,
+    error_code: ResponseErrorCode,
     data: &[u8],
 ) -> Option<()>
 where
     W: Write,
 {
-    write_packet_header(writer, pid, PacketType::Response);
-
-    let len = data.len() + 1;
-    writer.write_u8(len as u8).ok()?;
-    writer.write_u8(error_code.to_u8()?).ok()?;
+    Packet::write_response(writer, pid, error_code, data).unwrap();
     writer.flush().unwrap();
-    writer.write(data).ok()?;
-    writer.write_u16::<LittleEndian>(0).ok()?;
 
     Some(())
-}
-
-fn make_version(major: u8, minor: u8, patch: u8) -> u16 {
-    ((major & 0x3f) as u16) << 10 |
-        ((minor & 0x3f) as u16) << 4 |
-        (patch & 0xf) as u16
 }
 
 fn handle_identify<W>(writer: &mut W, packet: &Packet) -> Option<()>
@@ -207,15 +140,20 @@ where
 {
     let mut data = Vec::new();
 
-    let version = make_version(2, 1, 1);
-    data.extend_from_slice(&version.to_le_bytes());
+    let version = Version::new(2, 1, 1);
+    data.extend_from_slice(&version.0.to_le_bytes());
     data.push(1); // NUM_CMDS
 
     let name = "Testing";
     data.push(name.len() as u8);
     data.extend_from_slice(name.as_bytes());
 
-    write_response_packet(writer, packet.pid, ErrorCode::Success, &data)?;
+    write_response_packet(
+        writer,
+        packet.pid(),
+        ResponseErrorCode::Success,
+        &data,
+    )?;
 
     Some(())
 }
@@ -232,8 +170,8 @@ where
 
     write_response_packet(
         writer,
-        packet.pid,
-        ErrorCode::Success,
+        packet.pid(),
+        ResponseErrorCode::Success,
         &cursor.into_inner(),
     );
 }
@@ -242,16 +180,17 @@ fn handle_command<W>(writer: &mut W, packet: &Packet) -> Option<()>
 where
     W: Write,
 {
-    let cmd_index = packet.data[0];
-    let params = &packet.data[1..];
+    let data = packet.data();
+    let cmd_index = data[0];
+    let params = &data[1..];
 
     match cmd_index {
         0x00 => {
             if params.len() < 1 {
                 write_response_packet(
                     writer,
-                    packet.pid,
-                    ErrorCode::InsufficientFunctionParameters,
+                    packet.pid(),
+                    ResponseErrorCode::InsufficientFunctionParameters,
                     &[],
                 )?;
 
@@ -266,16 +205,16 @@ where
 
             write_response_packet(
                 writer,
-                packet.pid,
-                ErrorCode::Success,
+                packet.pid(),
+                ResponseErrorCode::Success,
                 &[],
             )?;
         }
 
         _ => write_response_packet(
             writer,
-            packet.pid,
-            ErrorCode::InvalidCommand,
+            packet.pid(),
+            ResponseErrorCode::InvalidCommand,
             &[],
         )?,
     }
@@ -287,7 +226,12 @@ fn handle_ping<W>(writer: &mut W, packet: &Packet)
 where
     W: Write,
 {
-    write_response_packet(writer, packet.pid, ErrorCode::Success, &[]);
+    write_response_packet(
+        writer,
+        packet.pid(),
+        ResponseErrorCode::Success,
+        &[],
+    );
 }
 
 fn handle_connection<S>(mut stream: S)
@@ -298,9 +242,9 @@ where
         match stream.read_u8() {
             Ok(val) => {
                 if val == PACKET_START {
-                    let packet = parse_packet(&mut stream).unwrap();
+                    let packet = Packet::read(&mut stream).unwrap();
 
-                    match packet.typ {
+                    match packet.typ() {
                         PacketType::Identify => {
                             handle_identify(&mut stream, &packet);
                         }
@@ -314,8 +258,8 @@ where
                         PacketType::Update | PacketType::Response => {
                             write_response_packet(
                                 &mut stream,
-                                packet.pid,
-                                ErrorCode::InvalidPacketType,
+                                packet.pid(),
+                                ResponseErrorCode::InvalidPacketType,
                                 &[],
                             );
                         }

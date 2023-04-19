@@ -623,6 +623,7 @@ dependencies = [
  "byteorder",
  "num-traits",
  "rustyline",
+ "speedwagon",
  "tusk",
 ]
 
