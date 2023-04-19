@@ -1,15 +1,13 @@
 use std::io::{Cursor, Read, Write};
 use std::net::TcpListener;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use byteorder::ReadBytesExt;
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
 use speedwagon::{
-    Packet, PacketType, ResponseErrorCode, Version, PACKET_START,
+    Packet, PacketType, RSNavState, ResponseErrorCode, Version, PACKET_START,
 };
-
-static STATE: RwLock<State> = RwLock::new(State::new());
 
 // NOTE(patrik):
 //   Front
@@ -24,36 +22,13 @@ static STATE: RwLock<State> = RwLock::new(State::new());
 //   - Reverse
 //   - Is Reverse Lights Active (SYNCED TO REVERSE)
 
-#[derive(Clone, Default, Debug)]
-struct State {
-    led_bar: bool,
-    led_bar_low_mode: bool,
-    high_beam: bool,
-    led_bar_active: bool,
-
-    reverse_camera: bool,
-    reverse_lights: bool,
-    reverse: bool,
-    reverse_lights_active: bool,
-    trunk_lights: bool,
+trait State: Sized + Sync + Send + Clone {
+    fn set_control(&mut self, name: &str, val: bool) -> Option<()>;
+    fn status(&self);
+    fn list_controls(&self);
 }
 
-impl State {
-    const fn new() -> Self {
-        Self {
-            led_bar: false,
-            led_bar_low_mode: false,
-            high_beam: false,
-            led_bar_active: false,
-
-            reverse_camera: false,
-            reverse_lights: false,
-            reverse: false,
-            reverse_lights_active: false,
-            trunk_lights: false,
-        }
-    }
-
+impl State for RSNavState {
     fn set_control(&mut self, name: &str, val: bool) -> Option<()> {
         match name {
             "led_bar" => self.led_bar = val,
@@ -98,25 +73,6 @@ impl State {
         println!("  reverse_lights_active");
         println!("  trunk_lights");
     }
-
-    fn pack<W>(&self, writer: &mut W) -> std::io::Result<()>
-    where
-        W: Write,
-    {
-        let b = (self.led_bar as u8) << 0 |
-            (self.led_bar_low_mode as u8) << 1 |
-            (self.high_beam as u8) << 2 |
-            (self.led_bar_active as u8) << 3;
-        writer.write_u8(b)?;
-
-        let b = (self.reverse_camera as u8) << 0 |
-            (self.reverse_lights as u8) << 1 |
-            (self.reverse as u8) << 2 |
-            (self.reverse_lights_active as u8) << 3 |
-            (self.trunk_lights as u8) << 4;
-        writer.write_u8(b)?;
-        Ok(())
-    }
 }
 
 fn write_response_packet<W>(
@@ -158,15 +114,18 @@ where
     Some(())
 }
 
-fn handle_status<W>(writer: &mut W, packet: &Packet)
-where
+fn handle_status<W>(
+    writer: &mut W,
+    state: &Arc<RwLock<RSNavState>>,
+    packet: &Packet,
+) where
     W: Write,
 {
     let mut cursor = Cursor::new([0; 16]);
 
-    let state = { STATE.read().expect("Failed to get read lock").clone() };
+    let state = { state.read().expect("Failed to get read lock").clone() };
 
-    state.pack(&mut cursor).unwrap();
+    state.serialize(&mut cursor).unwrap();
 
     write_response_packet(
         writer,
@@ -176,7 +135,11 @@ where
     );
 }
 
-fn handle_command<W>(writer: &mut W, packet: &Packet) -> Option<()>
+fn handle_command<W>(
+    writer: &mut W,
+    state: &Arc<RwLock<RSNavState>>,
+    packet: &Packet,
+) -> Option<()>
 where
     W: Write,
 {
@@ -198,7 +161,7 @@ where
             }
 
             let mut state =
-                STATE.write().expect("Failed to get write lock for state");
+                state.write().expect("Failed to get write lock for state");
             // state.trunk_lamp = (params[0] & (1 << 0)) > 0;
             // state.backup_camera = (params[0] & (1 << 1)) > 0;
             // state.backup_lights = (params[0] & (1 << 2)) > 0;
@@ -234,7 +197,7 @@ where
     );
 }
 
-fn handle_connection<S>(mut stream: S)
+fn handle_connection<S>(mut stream: S, state: &Arc<RwLock<RSNavState>>)
 where
     S: Read + Write,
 {
@@ -249,10 +212,10 @@ where
                             handle_identify(&mut stream, &packet);
                         }
                         PacketType::Status => {
-                            handle_status(&mut stream, &packet);
+                            handle_status(&mut stream, state, &packet);
                         }
                         PacketType::Command => {
-                            handle_command(&mut stream, &packet);
+                            handle_command(&mut stream, state, &packet);
                         }
                         PacketType::Ping => handle_ping(&mut stream, &packet),
                         PacketType::Update | PacketType::Response => {
@@ -356,7 +319,7 @@ fn parse_command(cmd: &str) -> Option<Command> {
     }
 }
 
-fn run_socket() {
+fn run_socket(state: Arc<RwLock<RSNavState>>) {
     let listener = TcpListener::bind("0.0.0.0:6969")
         .expect("Failed to bind TCP listener");
 
@@ -364,7 +327,7 @@ fn run_socket() {
         match stream {
             Ok(stream) => {
                 println!("Got Connection");
-                handle_connection(stream);
+                handle_connection(stream, &state);
             }
 
             Err(_) => {}
@@ -390,7 +353,7 @@ fn run_socket() {
     // }
 }
 
-fn run() {
+fn run(state_lock: Arc<RwLock<RSNavState>>) {
     let mut rl = DefaultEditor::new().unwrap();
 
     if rl.load_history("history.txt").is_err() {
@@ -409,8 +372,9 @@ fn run() {
                     continue;
                 };
 
-                let mut state =
-                    { STATE.read().expect("Failed to get read lock").clone() };
+                let mut state = {
+                    state_lock.read().expect("Failed to get read lock").clone()
+                };
 
                 match cmd {
                     Command::SetControl { name, val } => {
@@ -423,7 +387,7 @@ fn run() {
 
                     Command::RawStatus => {
                         let mut buf = Vec::new();
-                        state.pack(&mut buf).unwrap();
+                        state.serialize(&mut buf).unwrap();
                         println!("{:#x?}", buf);
                     }
 
@@ -449,7 +413,7 @@ fn run() {
                     }
                 }
 
-                *STATE.write().expect("Failed to get write lock") = state;
+                *state_lock.write().expect("Failed to get write lock") = state;
             }
 
             Err(ReadlineError::Interrupted) => {
@@ -470,9 +434,12 @@ fn run() {
 }
 
 fn main() {
+    let state = Arc::new(RwLock::new(RSNavState::new()));
+
+    let s = state.clone();
     std::thread::spawn(move || {
-        run_socket();
+        run_socket(s);
     });
 
-    run();
+    run(state);
 }
