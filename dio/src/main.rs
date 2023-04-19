@@ -95,7 +95,7 @@ fn send_packet<W>(writer: &mut W, typ: PacketType, data: &[u8])
 where
     W: Write,
 {
-    Packet::pack(writer, 0, typ, data);
+    Packet::write(writer, 0, typ, data).unwrap();
     writer.flush().unwrap();
 }
 
@@ -132,7 +132,7 @@ where
     loop {
         if let Ok(val) = reader.read_u8() {
             if val == PACKET_START {
-                return Packet::unpack(reader);
+                return Packet::read(reader).unwrap();
             }
         }
     }
