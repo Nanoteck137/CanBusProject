@@ -1,3 +1,4 @@
+#include "speedwagon.h"
 #include "util/button.h"
 #include "util/status_light.h"
 #include "device.h"
@@ -108,7 +109,7 @@ DEFINE_CMD(change_first_relay)
     context.relay->set(on);
     context.update_status();
 
-    return ErrorCode::Success;
+    return ResponseErrorCode::Success;
 }
 
 DEFINE_CMD(change_backup_lamps)
@@ -121,7 +122,7 @@ DEFINE_CMD(change_backup_lamps)
     context.backup_lamps->set(on);
     context.update_status();
 
-    return ErrorCode::Success;
+    return ResponseErrorCode::Success;
 }
 
 const DeviceSpec spec = {

@@ -122,7 +122,8 @@ void send_packet(PacketType type, uint8_t* data, uint8_t len)
     tud_cdc_n_write_flush(PORT_CMD);
 }
 
-void send_packet_response(ErrorCode error_code, uint8_t* data, size_t len)
+void send_packet_response(ResponseErrorCode error_code, uint8_t* data,
+                          size_t len)
 {
     write_packet_header(PacketType::Response);
 
@@ -166,7 +167,7 @@ void identify(DeviceContext* device)
     // TODO(patrik): Check for string length is not over 32
     memcpy(buffer + 3, spec.name, strlen(spec.name));
 
-    send_packet_response(ErrorCode::Success, buffer, sizeof(buffer));
+    send_packet_response(ResponseErrorCode::Success, buffer, sizeof(buffer));
 }
 
 void status()
@@ -176,7 +177,7 @@ void status()
 
     spec.get_status(buffer);
 
-    send_packet_response(ErrorCode::Success, buffer, sizeof(buffer));
+    send_packet_response(ResponseErrorCode::Success, buffer, sizeof(buffer));
 }
 
 void command(Packet* packet, DeviceContext* device)
@@ -184,7 +185,7 @@ void command(Packet* packet, DeviceContext* device)
     if (packet->data_len <= 0)
     {
         // TODO(patrik): Change error code
-        send_packet_response(ErrorCode::InvalidDevice, nullptr, 0);
+        send_packet_response(ResponseErrorCode::InvalidDevice, nullptr, 0);
         return;
     }
 
@@ -192,7 +193,7 @@ void command(Packet* packet, DeviceContext* device)
 
     if (cmd_index >= device->num_cmds)
     {
-        send_packet_response(ErrorCode::InvalidFunction, nullptr, 0);
+        send_packet_response(ResponseErrorCode::InvalidFunction, nullptr, 0);
         return;
     }
 
@@ -201,11 +202,12 @@ void command(Packet* packet, DeviceContext* device)
         num_params = packet->data_len - 1;
 
     CmdFunction cmd = spec.funcs[cmd_index];
-    ErrorCode error_code = cmd(data_buffer + current_data_offset, num_params);
+    ResponseErrorCode error_code =
+        cmd(data_buffer + current_data_offset, num_params);
     send_packet_response(error_code, nullptr, 0);
 }
 
-void ping() { send_packet_response(ErrorCode::Success, nullptr, 0); }
+void ping() { send_packet_response(ResponseErrorCode::Success, nullptr, 0); }
 
 void handle_packets(DeviceContext* device)
 {
@@ -224,8 +226,8 @@ void handle_packets(DeviceContext* device)
                 case PacketType::Ping: ping(); break;
 
                 default:
-                    send_packet_response(ErrorCode::InvalidPacketType, nullptr,
-                                         0);
+                    send_packet_response(ResponseErrorCode::InvalidPacketType,
+                                         nullptr, 0);
                     break;
             }
         }

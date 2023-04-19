@@ -13,8 +13,6 @@
 #include "util/status_light.h"
 #include "util/button.h"
 
-#include "tusk.h"
-
 #include "FreeRTOS.h"
 #include "task.h"
 
