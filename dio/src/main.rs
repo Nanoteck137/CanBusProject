@@ -4,8 +4,8 @@ use std::os::unix::net::UnixStream;
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use clap::{Parser, Subcommand};
-use num_traits::{FromPrimitive, ToPrimitive};
-use tusk::{ErrorCode, PacketType, PACKET_START};
+use num_traits::ToPrimitive;
+use speedwagon::{Packet, PacketType, PACKET_START};
 
 #[derive(Debug)]
 enum Command {
@@ -92,52 +92,6 @@ enum Action {
     },
 }
 
-#[derive(Debug)]
-struct Packet {
-    pid: u8,
-    typ: PacketType,
-    data: Vec<u8>,
-    checksum: u16,
-}
-
-impl Packet {
-    fn response(&self) -> Result<&[u8], ErrorCode> {
-        if self.typ == PacketType::Response {
-            let error_code = ErrorCode::from_u8(self.data[0]).unwrap();
-            match error_code {
-                ErrorCode::Success => Ok(&self.data[1..]),
-                _ => Err(error_code),
-            }
-        } else {
-            Err(ErrorCode::InvalidResponse)
-        }
-    }
-}
-
-fn get_next_packet<R>(reader: &mut R) -> Packet
-where
-    R: Read,
-{
-    let pid = reader.read_u8().unwrap();
-
-    let typ = reader.read_u8().unwrap();
-    let typ = PacketType::from_u8(typ).unwrap();
-
-    let data_len = reader.read_u8().unwrap();
-
-    let mut data = vec![0; data_len as usize];
-    reader.read_exact(&mut data).unwrap();
-
-    let checksum = reader.read_u16::<LittleEndian>().unwrap();
-
-    return Packet {
-        pid,
-        typ,
-        data,
-        checksum,
-    };
-}
-
 fn send_packet<W>(writer: &mut W, typ: PacketType, data: &[u8])
 where
     W: Write,
@@ -186,7 +140,7 @@ where
     loop {
         if let Ok(val) = reader.read_u8() {
             if val == PACKET_START {
-                return get_next_packet(reader);
+                return Packet::unpack(reader);
             }
         }
     }

@@ -11,4 +11,5 @@ clap = { version = "4.1.7", features = ["derive"] }
 num-traits = "0.2.15"
 serial2 = "0.1.7"
 serialport = "4.2.0"
+speedwagon = { version = "0.1.0", path = "../speedwagon" }
 tusk = { version = "0.1.0", path = "../tusk" }
