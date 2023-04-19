@@ -5,7 +5,6 @@ cmake_print_variables(CMAKE_CURRENT_BINARY_DIR)
 
 set(THIRD_PARTY_DIR ${CMAKE_CURRENT_LIST_DIR}/../third_party)
 set(FREERTOS_KERNEL_PATH ${THIRD_PARTY_DIR}/FreeRTOS-Kernel)
-set(TUSK_BINDINGS_PATH ${CMAKE_CURRENT_LIST_DIR}/../target/tusk/)
 set(SPEEDWAGON_BINDINGS_PATH ${CMAKE_CURRENT_LIST_DIR}/../target/speedwagon/)
 
 include(pico_sdk_import.cmake)
@@ -38,7 +37,6 @@ add_executable(the_world
 	)
 
 target_include_directories(the_world PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src)
-target_include_directories(the_world PRIVATE ${TUSK_BINDINGS_PATH})
 target_include_directories(the_world PRIVATE ${SPEEDWAGON_BINDINGS_PATH})
 target_include_directories(the_world PRIVATE ${THIRD_PARTY_DIR}/pico-mcp2515/include)
 
