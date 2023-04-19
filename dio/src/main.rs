@@ -2,10 +2,9 @@ use std::io::{ErrorKind, Read, Write};
 use std::net::TcpStream;
 use std::os::unix::net::UnixStream;
 
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::ReadBytesExt;
 use clap::{Parser, Subcommand};
-use num_traits::ToPrimitive;
-use speedwagon::{Packet, PacketType, PACKET_START};
+use speedwagon::{Identify, Packet, PacketType, PACKET_START};
 
 #[derive(Debug)]
 enum Command {
@@ -96,15 +95,8 @@ fn send_packet<W>(writer: &mut W, typ: PacketType, data: &[u8])
 where
     W: Write,
 {
-    writer.write_u8(PACKET_START).unwrap();
-    writer.write_u8(0).unwrap(); // PID
-    writer.write_u8(typ.to_u8().unwrap()).unwrap();
-
-    // TODO(patrik): Check data.len()
-    writer.write_u8(data.len() as u8).unwrap();
-    writer.write(data).unwrap();
-
-    writer.write_u16::<LittleEndian>(0).unwrap();
+    Packet::pack(writer, 0, typ, data);
+    writer.flush().unwrap();
 }
 
 fn send_empty_packet<W>(writer: &mut W, typ: PacketType)
@@ -146,65 +138,6 @@ where
     }
 }
 
-#[derive(Clone)]
-#[repr(transparent)]
-struct Version(u16);
-
-impl Version {
-    fn major(&self) -> u8 {
-        ((self.0 >> 10) & 0x3f) as u8
-    }
-
-    fn minor(&self) -> u8 {
-        ((self.0 >> 4) & 0x3f) as u8
-    }
-
-    fn patch(&self) -> u8 {
-        ((self.0) & 0xf) as u8
-    }
-}
-
-impl std::fmt::Debug for Version {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{}.{}", self.major(), self.minor(), self.patch())?;
-        Ok(())
-    }
-}
-
-#[derive(Clone, Debug)]
-struct Identify {
-    version: Version,
-    num_cmds: usize,
-    name: String,
-}
-
-impl Identify {
-    fn parse(data: &[u8]) -> Option<Self> {
-        if data.len() < 2 + 1 + 1 {
-            return None;
-        }
-
-        let version = u16::from_le_bytes(data[0..2].try_into().ok()?);
-        let num_cmds = data[2] as usize;
-        let name_len = data[3] as usize;
-
-        let data = &data[4..];
-
-        if data.len() < name_len {
-            return None;
-        }
-
-        let name = &data[0..name_len];
-        let name = std::str::from_utf8(name).ok()?;
-
-        Some(Identify {
-            version: Version(version),
-            num_cmds,
-            name: name.to_string(),
-        })
-    }
-}
-
 fn run<P>(port: &mut P, cmd: &str)
 where
     P: Read + Write,
@@ -227,7 +160,9 @@ where
             send_empty_packet(port, PacketType::Identify);
             let packet = wait_for_packet(port);
             match packet.response() {
-                Ok(data) => println!("Identity: {:?}", Identify::parse(data)),
+                Ok(mut data) => {
+                    println!("Identity: {:?}", Identify::unpack(&mut data))
+                }
                 Err(error_code) => eprintln!("Error: {:?}", error_code),
             }
         }
