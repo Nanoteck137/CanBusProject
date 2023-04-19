@@ -13,7 +13,7 @@ struct Args {
 #[derive(Subcommand, Debug)]
 enum Action {
     /// Compile firmware
-    GenTusk {},
+    GenBindings {},
     Firmware {
         device: String,
     },
@@ -72,24 +72,6 @@ where
     }
 }
 
-fn generate_tusk_bindings() {
-    std::fs::create_dir_all("target/tusk").unwrap();
-    let output = "target/tusk/tusk.h";
-
-    let status = Command::new("cbindgen")
-        .arg("tusk")
-        .arg("-o")
-        .arg(output)
-        .status()
-        .unwrap();
-    if !status.success() {
-        panic!(
-            "Failed to generate tusk bindings ({})",
-            status.code().unwrap_or_else(|| 0),
-        );
-    }
-}
-
 fn generate_speedwagon_bindings() {
     std::fs::create_dir_all("target/speedwagon").unwrap();
     let output = "target/speedwagon/speedwagon.h";
@@ -112,14 +94,12 @@ fn main() {
     let args = Args::parse();
 
     match args.action {
-        Action::GenTusk {} => {
-            println!("Generating tusk bindings");
-            generate_tusk_bindings();
+        Action::GenBindings {} => {
+            println!("Generating bindings");
             generate_speedwagon_bindings();
         }
 
         Action::Firmware { device } => {
-            generate_tusk_bindings();
             generate_speedwagon_bindings();
 
             let name = device;
