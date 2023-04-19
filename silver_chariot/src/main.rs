@@ -162,9 +162,8 @@ where
 
             let mut state =
                 state.write().expect("Failed to get write lock for state");
-            // state.trunk_lamp = (params[0] & (1 << 0)) > 0;
-            // state.backup_camera = (params[0] & (1 << 1)) > 0;
-            // state.backup_lights = (params[0] & (1 << 2)) > 0;
+            state.led_bar_active = !state.led_bar_active;
+            state.reverse_lights_active = !state.reverse_lights_active;
 
             write_response_packet(
                 writer,
@@ -244,6 +243,9 @@ enum Command {
     Status,
     RawStatus,
 
+    ToggleReverse,
+    ToggleHighBeam,
+
     ListCommands,
     ListControls,
 
@@ -289,6 +291,22 @@ fn parse_command(cmd: &str) -> Option<Command> {
             }
 
             Some(Command::RawStatus)
+        }
+
+        "togglereverse" => {
+            if params.len() != 0 {
+                return None;
+            }
+
+            Some(Command::ToggleReverse)
+        }
+
+        "togglehighbeam" => {
+            if params.len() != 0 {
+                return None;
+            }
+
+            Some(Command::ToggleHighBeam)
         }
 
         "commands" | "help" => {
@@ -389,6 +407,21 @@ fn run(state_lock: Arc<RwLock<RSNavState>>) {
                         let mut buf = Vec::new();
                         state.serialize(&mut buf).unwrap();
                         println!("{:#x?}", buf);
+                    }
+
+                    Command::ToggleReverse => {
+                        state.reverse = !state.reverse;
+                        state.reverse_camera = state.reverse;
+                        if state.reverse_lights_active {
+                            state.reverse_lights = state.reverse;
+                        }
+                    }
+
+                    Command::ToggleHighBeam => {
+                        state.high_beam = true;
+                        if state.led_bar_active {
+                            state.led_bar = true;
+                        }
                     }
 
                     Command::ListCommands => {
