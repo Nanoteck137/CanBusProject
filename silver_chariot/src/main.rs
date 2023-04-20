@@ -147,9 +147,9 @@ where
     let cmd_index = data[0];
     let params = &data[1..];
 
-    match cmd_index {
-        0x00 => {
-            if params.len() < 1 {
+    macro_rules! expect_num_params {
+        ($num:expr) => {
+            if params.len() < $num {
                 write_response_packet(
                     writer,
                     packet.pid(),
@@ -157,20 +157,149 @@ where
                     &[],
                 )?;
 
-                return Some(());
+                return None;
             }
+        };
+    }
 
-            let mut state =
-                state.write().expect("Failed to get write lock for state");
-            state.led_bar_active = !state.led_bar_active;
-            state.reverse_lights_active = !state.reverse_lights_active;
-
+    macro_rules! success {
+        () => {
             write_response_packet(
                 writer,
                 packet.pid(),
                 ResponseErrorCode::Success,
                 &[],
             )?;
+
+            return Some(());
+        };
+    }
+
+    let mut state = state.write().expect("Failed to get write lock for state");
+
+    match cmd_index {
+        0x00 => {
+            // SetLedBarActive
+            expect_num_params!(1);
+
+            let on = params[0] & (1 << 0) > 0;
+            let toggle = params[0] & (1 << 1) > 0;
+
+            if toggle {
+                let on = !state.led_bar_active;
+                state.set_led_bar_active(on);
+            } else {
+                state.set_led_bar_active(on);
+            }
+
+            success!();
+        }
+
+        0x01 => {
+            // SetLedBarLowMode
+            expect_num_params!(1);
+
+            let on = params[0] & (1 << 0) > 0;
+            let toggle = params[0] & (1 << 1) > 0;
+
+            if toggle {
+                let on = !state.led_bar_low_mode;
+                state.set_led_bar_low_mode(on);
+            } else {
+                state.set_led_bar_low_mode(on);
+            }
+
+            success!();
+        }
+
+        0x02 => {
+            // ForceLedBar
+
+            expect_num_params!(1);
+
+            let on = params[0] & (1 << 0) > 0;
+            let toggle = params[0] & (1 << 1) > 0;
+
+            if toggle {
+                let on = !state.led_bar;
+                state.force_led_bar(on);
+            } else {
+                state.force_led_bar(on);
+            }
+
+            success!();
+        }
+
+        0x03 => {
+            // SetTrunkLights
+
+            expect_num_params!(1);
+
+            let on = params[0] & (1 << 0) > 0;
+            let toggle = params[0] & (1 << 1) > 0;
+
+            if toggle {
+                let on = !state.trunk_lights;
+                state.set_trunk_lights(on);
+            } else {
+                state.set_trunk_lights(on);
+            }
+
+            success!();
+        }
+
+        0x04 => {
+            // SetReverseLightsActive
+
+            expect_num_params!(1);
+
+            let on = params[0] & (1 << 0) > 0;
+            let toggle = params[0] & (1 << 1) > 0;
+
+            if toggle {
+                let on = !state.reverse_lights_active;
+                state.set_reverse_lights_active(on);
+            } else {
+                state.set_reverse_lights_active(on);
+            }
+
+            success!();
+        }
+
+        0x05 => {
+            // ForceReverseLights
+
+            expect_num_params!(1);
+
+            let on = params[0] & (1 << 0) > 0;
+            let toggle = params[0] & (1 << 1) > 0;
+
+            if toggle {
+                let on = !state.reverse_lights;
+                state.force_reverse_lights(on);
+            } else {
+                state.force_reverse_lights(on);
+            }
+
+            success!();
+        }
+
+        0x06 => {
+            // * 0x06 - ForceReverseCamera
+
+            expect_num_params!(1);
+
+            let on = params[0] & (1 << 0) > 0;
+            let toggle = params[0] & (1 << 1) > 0;
+
+            if toggle {
+                let on = !state.reverse_camera;
+                state.force_reverse_camera(on);
+            } else {
+                state.force_reverse_camera(on);
+            }
+
+            success!();
         }
 
         _ => write_response_packet(
@@ -178,10 +307,8 @@ where
             packet.pid(),
             ResponseErrorCode::InvalidCommand,
             &[],
-        )?,
+        ),
     }
-
-    Some(())
 }
 
 fn handle_ping<W>(writer: &mut W, packet: &Packet)
@@ -418,9 +545,9 @@ fn run(state_lock: Arc<RwLock<RSNavState>>) {
                     }
 
                     Command::ToggleHighBeam => {
-                        state.high_beam = true;
+                        state.high_beam = !state.high_beam;
                         if state.led_bar_active {
-                            state.led_bar = true;
+                            state.led_bar = state.high_beam;
                         }
                     }
 
@@ -467,7 +594,12 @@ fn run(state_lock: Arc<RwLock<RSNavState>>) {
 }
 
 fn main() {
-    let state = Arc::new(RwLock::new(RSNavState::new()));
+    let mut state = RSNavState::new();
+    state.led_bar_active = true;
+    state.led_bar_low_mode = true;
+    state.reverse_lights_active = true;
+
+    let state = Arc::new(RwLock::new(state));
 
     let s = state.clone();
     std::thread::spawn(move || {
