@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "tusk.h"
+#include "speedwagon.h"
 
 const uint8_t PORT_CMD = 0;
 const uint8_t PORT_DEBUG = 1;

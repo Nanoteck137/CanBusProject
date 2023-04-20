@@ -2,6 +2,10 @@
 
 /build
 
+/history.txt
+
+.DS_Store
+
 # Added by cargo
 
 /target

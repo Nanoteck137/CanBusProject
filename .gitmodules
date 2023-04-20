@@ -4,3 +4,6 @@
 [submodule "pico-mcp2515"]
 	path = third_party/pico-mcp2515
 	url = https://github.com/adamczykpiotr/pico-mcp2515.git
+[submodule "speedwagon"]
+	path = speedwagon
+	url = https://www.github.com/nanoteck137/speedwagon

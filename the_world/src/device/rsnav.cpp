@@ -1,3 +1,4 @@
+#include "speedwagon.h"
 #include "util/button.h"
 #include "util/status_light.h"
 #include "device.h"
@@ -67,7 +68,7 @@ DEFINE_CMD(test)
 
     uint8_t data[] = {0x00, c};
     send_can_message(0x101, data, sizeof(data));
-    return ErrorCode::Success;
+    return ResponseErrorCode::Success;
 }
 
 const DeviceSpec spec = {

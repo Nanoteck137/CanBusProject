@@ -1,10 +1,12 @@
 [package]
-name = "tusk"
+name = "silver_chariot"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-enum-primitive-derive = "0.2.2"
+byteorder = "1.4.3"
 num-traits = "0.2.15"
+rustyline = "11.0.0"
+speedwagon = { version = "0.1.0", path = "../speedwagon" }

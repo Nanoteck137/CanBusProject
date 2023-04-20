@@ -3,5 +3,6 @@
 members = [
     "dio",
     "ora",
-    "tusk",
+    "speedwagon",
+    "silver_chariot",
 ]
