@@ -25,7 +25,15 @@ use speedwagon::{
 trait State: Sized + Sync + Send + Clone {
     fn set_control(&mut self, name: &str, val: bool) -> Option<()>;
     fn status(&self);
-    fn list_controls(&self);
+    fn exec_cmd<W>(
+        &mut self,
+        writer: &mut W,
+        packet: &Packet,
+        cmd_index: u8,
+        params: &[u8],
+    ) -> Option<()>
+    where
+        W: Write;
 }
 
 impl State for RSNavState {
@@ -53,7 +61,7 @@ impl State for RSNavState {
         println!("  led_bar_low_mode = {}", self.led_bar_low_mode);
         println!("  high_beam = {}", self.high_beam);
         println!("  led_bar_active = {}", self.led_bar_active);
-
+        println!();
         println!("  reverse_camera = {}", self.reverse_camera);
         println!("  reverse_lights = {}", self.reverse_lights);
         println!("  reverse = {}", self.reverse);
@@ -61,17 +69,176 @@ impl State for RSNavState {
         println!("  trunk_lights = {}", self.trunk_lights);
     }
 
-    fn list_controls(&self) {
-        println!("  led_bar");
-        println!("  led_bar_low_mode");
-        println!("  high_beam");
-        println!("  led_bar_active");
+    fn exec_cmd<W>(
+        &mut self,
+        writer: &mut W,
+        packet: &Packet,
+        cmd_index: u8,
+        params: &[u8],
+    ) -> Option<()>
+    where
+        W: Write,
+    {
+        macro_rules! expect_num_params {
+            ($num:expr) => {
+                if params.len() < $num {
+                    write_response_packet(
+                        writer,
+                        packet.pid(),
+                        ResponseErrorCode::InsufficientFunctionParameters,
+                        &[],
+                    )?;
 
-        println!("  reverse_camera");
-        println!("  reverse_lights");
-        println!("  reverse");
-        println!("  reverse_lights_active");
-        println!("  trunk_lights");
+                    return None;
+                }
+            };
+        }
+
+        macro_rules! success {
+            () => {
+                write_response_packet(
+                    writer,
+                    packet.pid(),
+                    ResponseErrorCode::Success,
+                    &[],
+                )?;
+
+                return Some(());
+            };
+        }
+
+        match cmd_index {
+            0x00 => {
+                // SetLedBarActive
+                expect_num_params!(1);
+
+                let on = params[0] & (1 << 0) > 0;
+                let toggle = params[0] & (1 << 1) > 0;
+
+                if toggle {
+                    let on = !self.led_bar_active;
+                    self.set_led_bar_active(on);
+                } else {
+                    self.set_led_bar_active(on);
+                }
+
+                success!();
+            }
+
+            0x01 => {
+                // SetLedBarLowMode
+                expect_num_params!(1);
+
+                let on = params[0] & (1 << 0) > 0;
+                let toggle = params[0] & (1 << 1) > 0;
+
+                if toggle {
+                    let on = !self.led_bar_low_mode;
+                    self.set_led_bar_low_mode(on);
+                } else {
+                    self.set_led_bar_low_mode(on);
+                }
+
+                success!();
+            }
+
+            0x02 => {
+                // ForceLedBar
+
+                expect_num_params!(1);
+
+                let on = params[0] & (1 << 0) > 0;
+                let toggle = params[0] & (1 << 1) > 0;
+
+                if toggle {
+                    let on = !self.led_bar;
+                    self.force_led_bar(on);
+                } else {
+                    self.force_led_bar(on);
+                }
+
+                success!();
+            }
+
+            0x03 => {
+                // SetTrunkLights
+
+                expect_num_params!(1);
+
+                let on = params[0] & (1 << 0) > 0;
+                let toggle = params[0] & (1 << 1) > 0;
+
+                if toggle {
+                    let on = !self.trunk_lights;
+                    self.set_trunk_lights(on);
+                } else {
+                    self.set_trunk_lights(on);
+                }
+
+                success!();
+            }
+
+            0x04 => {
+                // SetReverseLightsActive
+
+                expect_num_params!(1);
+
+                let on = params[0] & (1 << 0) > 0;
+                let toggle = params[0] & (1 << 1) > 0;
+
+                if toggle {
+                    let on = !self.reverse_lights_active;
+                    self.set_reverse_lights_active(on);
+                } else {
+                    self.set_reverse_lights_active(on);
+                }
+
+                success!();
+            }
+
+            0x05 => {
+                // ForceReverseLights
+
+                expect_num_params!(1);
+
+                let on = params[0] & (1 << 0) > 0;
+                let toggle = params[0] & (1 << 1) > 0;
+
+                if toggle {
+                    let on = !self.reverse_lights;
+                    self.force_reverse_lights(on);
+                } else {
+                    self.force_reverse_lights(on);
+                }
+
+                success!();
+            }
+
+            0x06 => {
+                // * 0x06 - ForceReverseCamera
+
+                expect_num_params!(1);
+
+                let on = params[0] & (1 << 0) > 0;
+                let toggle = params[0] & (1 << 1) > 0;
+
+                if toggle {
+                    let on = !self.reverse_camera;
+                    self.force_reverse_camera(on);
+                } else {
+                    self.force_reverse_camera(on);
+                }
+
+                success!();
+            }
+
+            _ => write_response_packet(
+                writer,
+                packet.pid(),
+                ResponseErrorCode::InvalidCommand,
+                &[],
+            ),
+        }
     }
 }
 
@@ -147,168 +314,9 @@ where
     let cmd_index = data[0];
     let params = &data[1..];
 
-    macro_rules! expect_num_params {
-        ($num:expr) => {
-            if params.len() < $num {
-                write_response_packet(
-                    writer,
-                    packet.pid(),
-                    ResponseErrorCode::InsufficientFunctionParameters,
-                    &[],
-                )?;
-
-                return None;
-            }
-        };
-    }
-
-    macro_rules! success {
-        () => {
-            write_response_packet(
-                writer,
-                packet.pid(),
-                ResponseErrorCode::Success,
-                &[],
-            )?;
-
-            return Some(());
-        };
-    }
-
     let mut state = state.write().expect("Failed to get write lock for state");
 
-    match cmd_index {
-        0x00 => {
-            // SetLedBarActive
-            expect_num_params!(1);
-
-            let on = params[0] & (1 << 0) > 0;
-            let toggle = params[0] & (1 << 1) > 0;
-
-            if toggle {
-                let on = !state.led_bar_active;
-                state.set_led_bar_active(on);
-            } else {
-                state.set_led_bar_active(on);
-            }
-
-            success!();
-        }
-
-        0x01 => {
-            // SetLedBarLowMode
-            expect_num_params!(1);
-
-            let on = params[0] & (1 << 0) > 0;
-            let toggle = params[0] & (1 << 1) > 0;
-
-            if toggle {
-                let on = !state.led_bar_low_mode;
-                state.set_led_bar_low_mode(on);
-            } else {
-                state.set_led_bar_low_mode(on);
-            }
-
-            success!();
-        }
-
-        0x02 => {
-            // ForceLedBar
-
-            expect_num_params!(1);
-
-            let on = params[0] & (1 << 0) > 0;
-            let toggle = params[0] & (1 << 1) > 0;
-
-            if toggle {
-                let on = !state.led_bar;
-                state.force_led_bar(on);
-            } else {
-                state.force_led_bar(on);
-            }
-
-            success!();
-        }
-
-        0x03 => {
-            // SetTrunkLights
-
-            expect_num_params!(1);
-
-            let on = params[0] & (1 << 0) > 0;
-            let toggle = params[0] & (1 << 1) > 0;
-
-            if toggle {
-                let on = !state.trunk_lights;
-                state.set_trunk_lights(on);
-            } else {
-                state.set_trunk_lights(on);
-            }
-
-            success!();
-        }
-
-        0x04 => {
-            // SetReverseLightsActive
-
-            expect_num_params!(1);
-
-            let on = params[0] & (1 << 0) > 0;
-            let toggle = params[0] & (1 << 1) > 0;
-
-            if toggle {
-                let on = !state.reverse_lights_active;
-                state.set_reverse_lights_active(on);
-            } else {
-                state.set_reverse_lights_active(on);
-            }
-
-            success!();
-        }
-
-        0x05 => {
-            // ForceReverseLights
-
-            expect_num_params!(1);
-
-            let on = params[0] & (1 << 0) > 0;
-            let toggle = params[0] & (1 << 1) > 0;
-
-            if toggle {
-                let on = !state.reverse_lights;
-                state.force_reverse_lights(on);
-            } else {
-                state.force_reverse_lights(on);
-            }
-
-            success!();
-        }
-
-        0x06 => {
-            // * 0x06 - ForceReverseCamera
-
-            expect_num_params!(1);
-
-            let on = params[0] & (1 << 0) > 0;
-            let toggle = params[0] & (1 << 1) > 0;
-
-            if toggle {
-                let on = !state.reverse_camera;
-                state.force_reverse_camera(on);
-            } else {
-                state.force_reverse_camera(on);
-            }
-
-            success!();
-        }
-
-        _ => write_response_packet(
-            writer,
-            packet.pid(),
-            ResponseErrorCode::InvalidCommand,
-            &[],
-        ),
-    }
+    state.exec_cmd(writer, packet, cmd_index, params)
 }
 
 fn handle_ping<W>(writer: &mut W, packet: &Packet)
@@ -373,9 +381,7 @@ enum Command {
     ToggleReverse,
     ToggleHighBeam,
 
-    ListCommands,
-    ListControls,
-
+    Help,
     Exit,
 }
 
@@ -436,20 +442,12 @@ fn parse_command(cmd: &str) -> Option<Command> {
             Some(Command::ToggleHighBeam)
         }
 
-        "commands" | "help" => {
+        "help" => {
             if params.len() != 0 {
                 return None;
             }
 
-            Some(Command::ListCommands)
-        }
-
-        "controls" => {
-            if params.len() != 0 {
-                return None;
-            }
-
-            Some(Command::ListControls)
+            Some(Command::Help)
         }
 
         "exit" | "quit" | "q" => {
@@ -537,21 +535,14 @@ fn run(state_lock: Arc<RwLock<RSNavState>>) {
                     }
 
                     Command::ToggleReverse => {
-                        state.reverse = !state.reverse;
-                        state.reverse_camera = state.reverse;
-                        if state.reverse_lights_active {
-                            state.reverse_lights = state.reverse;
-                        }
+                        state.reverse(!state.reverse);
                     }
 
                     Command::ToggleHighBeam => {
-                        state.high_beam = !state.high_beam;
-                        if state.led_bar_active {
-                            state.led_bar = state.high_beam;
-                        }
+                        state.high_beam(!state.high_beam);
                     }
 
-                    Command::ListCommands => {
+                    Command::Help => {
                         println!(
                             "  control <name> <on/off/true/false> - Set \
                              Control state"
@@ -560,12 +551,7 @@ fn run(state_lock: Arc<RwLock<RSNavState>>) {
                         println!(
                             "  rawstatus - List current raw control status"
                         );
-                        println!("  commands - List all commands");
-                        println!("  controls - List all controls");
-                    }
-
-                    Command::ListControls => {
-                        state.list_controls();
+                        println!("  help - Help");
                     }
 
                     Command::Exit => {
