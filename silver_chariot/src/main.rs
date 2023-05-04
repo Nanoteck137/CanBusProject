@@ -6,7 +6,7 @@ use byteorder::ReadBytesExt;
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
 use speedwagon::{
-    Packet, PacketType, RSNavState, ResponseErrorCode, Version, PACKET_START,
+    Packet, PacketType, RSNavState, ResponseCode, Version, PACKET_START,
 };
 
 // NOTE(patrik):
@@ -68,7 +68,6 @@ impl State for RSNavState {
         println!("  reverse_lights_active = {}", self.reverse_lights_active);
         println!("  trunk_lights = {}", self.trunk_lights);
     }
-
     fn exec_cmd<W>(
         &mut self,
         writer: &mut W,
@@ -79,296 +78,293 @@ impl State for RSNavState {
     where
         W: Write,
     {
-        macro_rules! expect_num_params {
-            ($num:expr) => {
-                if params.len() < $num {
-                    write_response_packet(
-                        writer,
-                        packet.pid(),
-                        ResponseErrorCode::InsufficientFunctionParameters,
-                        &[],
-                    )?;
-
-                    return None;
-                }
-            };
-        }
-
-        macro_rules! success {
-            () => {
-                write_response_packet(
-                    writer,
-                    packet.pid(),
-                    ResponseErrorCode::Success,
-                    &[],
-                )?;
-
-                return Some(());
-            };
-        }
-
-        match cmd_index {
-            0x00 => {
-                // SetLedBarActive
-                expect_num_params!(1);
-
-                let on = params[0] & (1 << 0) > 0;
-                let toggle = params[0] & (1 << 1) > 0;
-
-                if toggle {
-                    let on = !self.led_bar_active;
-                    self.set_led_bar_active(on);
-                } else {
-                    self.set_led_bar_active(on);
-                }
-
-                success!();
-            }
-
-            0x01 => {
-                // SetLedBarLowMode
-                expect_num_params!(1);
-
-                let on = params[0] & (1 << 0) > 0;
-                let toggle = params[0] & (1 << 1) > 0;
-
-                if toggle {
-                    let on = !self.led_bar_low_mode;
-                    self.set_led_bar_low_mode(on);
-                } else {
-                    self.set_led_bar_low_mode(on);
-                }
-
-                success!();
-            }
-
-            0x02 => {
-                // ForceLedBar
-
-                expect_num_params!(1);
-
-                let on = params[0] & (1 << 0) > 0;
-                let toggle = params[0] & (1 << 1) > 0;
-
-                if toggle {
-                    let on = !self.led_bar;
-                    self.force_led_bar(on);
-                } else {
-                    self.force_led_bar(on);
-                }
-
-                success!();
-            }
-
-            0x03 => {
-                // SetTrunkLights
-
-                expect_num_params!(1);
-
-                let on = params[0] & (1 << 0) > 0;
-                let toggle = params[0] & (1 << 1) > 0;
-
-                if toggle {
-                    let on = !self.trunk_lights;
-                    self.set_trunk_lights(on);
-                } else {
-                    self.set_trunk_lights(on);
-                }
-
-                success!();
-            }
-
-            0x04 => {
-                // SetReverseLightsActive
-
-                expect_num_params!(1);
-
-                let on = params[0] & (1 << 0) > 0;
-                let toggle = params[0] & (1 << 1) > 0;
-
-                if toggle {
-                    let on = !self.reverse_lights_active;
-                    self.set_reverse_lights_active(on);
-                } else {
-                    self.set_reverse_lights_active(on);
-                }
-
-                success!();
-            }
-
-            0x05 => {
-                // ForceReverseLights
-
-                expect_num_params!(1);
-
-                let on = params[0] & (1 << 0) > 0;
-                let toggle = params[0] & (1 << 1) > 0;
-
-                if toggle {
-                    let on = !self.reverse_lights;
-                    self.force_reverse_lights(on);
-                } else {
-                    self.force_reverse_lights(on);
-                }
-
-                success!();
-            }
-
-            0x06 => {
-                // * 0x06 - ForceReverseCamera
-
-                expect_num_params!(1);
-
-                let on = params[0] & (1 << 0) > 0;
-                let toggle = params[0] & (1 << 1) > 0;
-
-                if toggle {
-                    let on = !self.reverse_camera;
-                    self.force_reverse_camera(on);
-                } else {
-                    self.force_reverse_camera(on);
-                }
-
-                success!();
-            }
-
-            _ => write_response_packet(
-                writer,
-                packet.pid(),
-                ResponseErrorCode::InvalidCommand,
-                &[],
-            ),
-        }
+        panic!();
     }
+
+    //
+    // fn exec_cmd<W>(
+    //     &mut self,
+    //     writer: &mut W,
+    //     packet: &Packet,
+    //     cmd_index: u8,
+    //     params: &[u8],
+    // ) -> Option<()>
+    // where
+    //     W: Write,
+    // {
+    //     macro_rules! expect_num_params {
+    //         ($num:expr) => {
+    //             if params.len() < $num {
+    //                 write_response_packet(
+    //                     writer,
+    //                     packet.pid(),
+    //                     ResponseCode::InsufficientFunctionParameters,
+    //                     &[],
+    //                 )?;
+    //
+    //                 return None;
+    //             }
+    //         };
+    //     }
+    //
+    //     macro_rules! success {
+    //         () => {
+    //             write_response_packet(
+    //                 writer,
+    //                 packet.pid(),
+    //                 ResponseCode::Success,
+    //                 &[],
+    //             )?;
+    //
+    //             return Some(());
+    //         };
+    //     }
+    //
+    //     match cmd_index {
+    //         0x00 => {
+    //             // SetLedBarActive
+    //             expect_num_params!(1);
+    //
+    //             let on = params[0] & (1 << 0) > 0;
+    //             let toggle = params[0] & (1 << 1) > 0;
+    //
+    //             if toggle {
+    //                 let on = !self.led_bar_active;
+    //                 self.set_led_bar_active(on);
+    //             } else {
+    //                 self.set_led_bar_active(on);
+    //             }
+    //
+    //             success!();
+    //         }
+    //
+    //         0x01 => {
+    //             // SetLedBarLowMode
+    //             expect_num_params!(1);
+    //
+    //             let on = params[0] & (1 << 0) > 0;
+    //             let toggle = params[0] & (1 << 1) > 0;
+    //
+    //             if toggle {
+    //                 let on = !self.led_bar_low_mode;
+    //                 self.set_led_bar_low_mode(on);
+    //             } else {
+    //                 self.set_led_bar_low_mode(on);
+    //             }
+    //
+    //             success!();
+    //         }
+    //
+    //         0x02 => {
+    //             // ForceLedBar
+    //
+    //             expect_num_params!(1);
+    //
+    //             let on = params[0] & (1 << 0) > 0;
+    //             let toggle = params[0] & (1 << 1) > 0;
+    //
+    //             if toggle {
+    //                 let on = !self.led_bar;
+    //                 self.force_led_bar(on);
+    //             } else {
+    //                 self.force_led_bar(on);
+    //             }
+    //
+    //             success!();
+    //         }
+    //
+    //         0x03 => {
+    //             // SetTrunkLights
+    //
+    //             expect_num_params!(1);
+    //
+    //             let on = params[0] & (1 << 0) > 0;
+    //             let toggle = params[0] & (1 << 1) > 0;
+    //
+    //             if toggle {
+    //                 let on = !self.trunk_lights;
+    //                 self.set_trunk_lights(on);
+    //             } else {
+    //                 self.set_trunk_lights(on);
+    //             }
+    //
+    //             success!();
+    //         }
+    //
+    //         0x04 => {
+    //             // SetReverseLightsActive
+    //
+    //             expect_num_params!(1);
+    //
+    //             let on = params[0] & (1 << 0) > 0;
+    //             let toggle = params[0] & (1 << 1) > 0;
+    //
+    //             if toggle {
+    //                 let on = !self.reverse_lights_active;
+    //                 self.set_reverse_lights_active(on);
+    //             } else {
+    //                 self.set_reverse_lights_active(on);
+    //             }
+    //
+    //             success!();
+    //         }
+    //
+    //         0x05 => {
+    //             // ForceReverseLights
+    //
+    //             expect_num_params!(1);
+    //
+    //             let on = params[0] & (1 << 0) > 0;
+    //             let toggle = params[0] & (1 << 1) > 0;
+    //
+    //             if toggle {
+    //                 let on = !self.reverse_lights;
+    //                 self.force_reverse_lights(on);
+    //             } else {
+    //                 self.force_reverse_lights(on);
+    //             }
+    //
+    //             success!();
+    //         }
+    //
+    //         0x06 => {
+    //             // * 0x06 - ForceReverseCamera
+    //
+    //             expect_num_params!(1);
+    //
+    //             let on = params[0] & (1 << 0) > 0;
+    //             let toggle = params[0] & (1 << 1) > 0;
+    //
+    //             if toggle {
+    //                 let on = !self.reverse_camera;
+    //                 self.force_reverse_camera(on);
+    //             } else {
+    //                 self.force_reverse_camera(on);
+    //             }
+    //
+    //             success!();
+    //         }
+    //
+    //         _ => write_response_packet(
+    //             writer,
+    //             packet.pid(),
+    //             ResponseCode::InvalidCommand,
+    //             &[],
+    //         ),
+    //     }
+    // }
 }
 
-fn write_response_packet<W>(
-    writer: &mut W,
-    pid: u8,
-    error_code: ResponseErrorCode,
-    data: &[u8],
-) -> Option<()>
-where
-    W: Write,
-{
-    Packet::write_response(writer, pid, error_code, data).unwrap();
-    writer.flush().unwrap();
-
-    Some(())
-}
-
-fn handle_identify<W>(writer: &mut W, packet: &Packet) -> Option<()>
-where
-    W: Write,
-{
-    let mut data = Vec::new();
-
-    let version = Version::new(2, 1, 1);
-    data.extend_from_slice(&version.0.to_le_bytes());
-    data.push(1); // NUM_CMDS
-
-    let name = "Testing";
-    data.push(name.len() as u8);
-    data.extend_from_slice(name.as_bytes());
-
-    write_response_packet(
-        writer,
-        packet.pid(),
-        ResponseErrorCode::Success,
-        &data,
-    )?;
-
-    Some(())
-}
-
-fn handle_status<W>(
-    writer: &mut W,
-    state: &Arc<RwLock<RSNavState>>,
-    packet: &Packet,
-) where
-    W: Write,
-{
-    let mut cursor = Cursor::new([0; 16]);
-
-    let state = { state.read().expect("Failed to get read lock").clone() };
-
-    state.serialize(&mut cursor).unwrap();
-
-    write_response_packet(
-        writer,
-        packet.pid(),
-        ResponseErrorCode::Success,
-        &cursor.into_inner(),
-    );
-}
-
-fn handle_command<W>(
-    writer: &mut W,
-    state: &Arc<RwLock<RSNavState>>,
-    packet: &Packet,
-) -> Option<()>
-where
-    W: Write,
-{
-    let data = packet.data();
-    let cmd_index = data[0];
-    let params = &data[1..];
-
-    let mut state = state.write().expect("Failed to get write lock for state");
-
-    state.exec_cmd(writer, packet, cmd_index, params)
-}
-
-fn handle_ping<W>(writer: &mut W, packet: &Packet)
-where
-    W: Write,
-{
-    write_response_packet(
-        writer,
-        packet.pid(),
-        ResponseErrorCode::Success,
-        &[],
-    );
-}
+// fn write_response_packet<W>(
+//     writer: &mut W,
+//     pid: u8,
+//     error_code: ResponseCode,
+//     data: &[u8],
+// ) -> Option<()>
+// where
+//     W: Write,
+// {
+//     Packet::write_response(writer, pid, error_code, data).unwrap();
+//     writer.flush().unwrap();
+//
+//     Some(())
+// }
+//
+// fn handle_identify<W>(writer: &mut W, packet: &Packet) -> Option<()>
+// where
+//     W: Write,
+// {
+//     let mut data = Vec::new();
+//
+//     let version = Version::new(2, 1, 1);
+//     data.extend_from_slice(&version.0.to_le_bytes());
+//     data.push(1); // NUM_CMDS
+//
+//     let name = "Testing";
+//     data.push(name.len() as u8);
+//     data.extend_from_slice(name.as_bytes());
+//
+//     write_response_packet(writer, packet.pid(), ResponseCode::Success, &data)?;
+//
+//     Some(())
+// }
+//
+// fn handle_status<W>(
+//     writer: &mut W,
+//     state: &Arc<RwLock<RSNavState>>,
+//     packet: &Packet,
+// ) where
+//     W: Write,
+// {
+//     let mut cursor = Cursor::new([0; 16]);
+//
+//     let state = { state.read().expect("Failed to get read lock").clone() };
+//
+//     state.serialize(&mut cursor).unwrap();
+//
+//     write_response_packet(
+//         writer,
+//         packet.pid(),
+//         ResponseCode::Success,
+//         &cursor.into_inner(),
+//     );
+// }
+//
+// fn handle_command<W>(
+//     writer: &mut W,
+//     state: &Arc<RwLock<RSNavState>>,
+//     packet: &Packet,
+// ) -> Option<()>
+// where
+//     W: Write,
+// {
+//     let data = packet.data();
+//     let cmd_index = data[0];
+//     let params = &data[1..];
+//
+//     let mut state = state.write().expect("Failed to get write lock for state");
+//
+//     state.exec_cmd(writer, packet, cmd_index, params)
+// }
+//
+// fn handle_ping<W>(writer: &mut W, packet: &Packet)
+// where
+//     W: Write,
+// {
+//     write_response_packet(writer, packet.pid(), ResponseCode::Success, &[]);
+// }
 
 fn handle_connection<S>(mut stream: S, state: &Arc<RwLock<RSNavState>>)
 where
     S: Read + Write,
 {
     loop {
-        match stream.read_u8() {
-            Ok(val) => {
-                if val == PACKET_START {
-                    let packet = Packet::read(&mut stream).unwrap();
+        let packet = match Packet::deserialize(&mut stream) {
+            Ok(packet) => packet,
+            Err(_) => break,
+        };
+        println!("Packet: {:#?}", packet);
 
-                    match packet.typ() {
-                        PacketType::Identify => {
-                            handle_identify(&mut stream, &packet);
-                        }
-                        PacketType::Status => {
-                            handle_status(&mut stream, state, &packet);
-                        }
-                        PacketType::Command => {
-                            handle_command(&mut stream, state, &packet);
-                        }
-                        PacketType::Ping => handle_ping(&mut stream, &packet),
-                        PacketType::Update | PacketType::Response => {
-                            write_response_packet(
-                                &mut stream,
-                                packet.pid(),
-                                ResponseErrorCode::InvalidPacketType,
-                                &[],
-                            );
-                        }
-                    }
-                }
-            }
-
-            Err(_e) => {
-                println!("Disconnect");
-                return;
-            }
-        }
+        // match packet.typ() {
+        //     PacketType::Identify => {
+        //         handle_identify(&mut stream, &packet);
+        //     }
+        //     PacketType::Status => {
+        //         handle_status(&mut stream, state, &packet);
+        //     }
+        //     PacketType::Command => {
+        //         handle_command(&mut stream, state, &packet);
+        //     }
+        //     PacketType::Ping => handle_ping(&mut stream, &packet),
+        //     PacketType::Update | PacketType::Response => {
+        //         write_response_packet(
+        //             &mut stream,
+        //             packet.pid(),
+        //             ResponseCode::InvalidPacketType,
+        //             &[],
+        //         );
+        //     }
+        // }
     }
 }
 
