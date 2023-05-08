@@ -4,7 +4,7 @@ use std::os::unix::net::UnixStream;
 
 use byteorder::ReadBytesExt;
 use clap::{Parser, Subcommand};
-use speedwagon::{Identify, Packet, PacketType, PACKET_START};
+use speedwagon::{Identity, Packet, PacketType, PACKET_START};
 
 #[derive(Debug)]
 enum Command {
@@ -91,21 +91,6 @@ enum Action {
     },
 }
 
-fn send_packet<W>(writer: &mut W, typ: PacketType, data: &[u8])
-where
-    W: Write,
-{
-    Packet::write(writer, 0, typ, data).unwrap();
-    writer.flush().unwrap();
-}
-
-fn send_empty_packet<W>(writer: &mut W, typ: PacketType)
-where
-    W: Write,
-{
-    send_packet(writer, typ, &[]);
-}
-
 fn run_debug_monitor(port: &String, baudrate: u32) {
     let mut port = serialport::new(port, baudrate).open().unwrap();
 
@@ -125,68 +110,53 @@ fn run_debug_monitor(port: &String, baudrate: u32) {
     }
 }
 
-fn wait_for_packet<R>(reader: &mut R) -> Packet
-where
-    R: Read,
-{
-    loop {
-        if let Ok(val) = reader.read_u8() {
-            if val == PACKET_START {
-                return Packet::read(reader).unwrap();
-            }
-        }
-    }
-}
-
 fn run<P>(port: &mut P, cmd: &str)
 where
     P: Read + Write,
 {
-    // send_empty_packet(port, PacketType::Identify);
-    // let packet = wait_for_packet(port);
-    // let info = match packet.response() {
-    //     Ok(data) => {
-    //         Identify::parse(data).expect("Failed to parse identify data")
-    //     }
-    //     Err(error_code) => {
-    //         panic!("Failed to identify device: {:?}", error_code)
-    //     }
-    // };
-
     let cmd = parse_cmd(cmd).expect("Failed to parse command");
 
     match cmd {
         Command::Identify => {
-            send_empty_packet(port, PacketType::Identify);
-            let packet = wait_for_packet(port);
-            match packet.response() {
-                Ok(mut data) => {
-                    println!("Identity: {:?}", Identify::unpack(&mut data))
+            let packet = Packet::new(0, PacketType::Identify);
+            packet.serialize(port).unwrap();
+
+            let packet = Packet::deserialize(port).unwrap();
+            match packet.typ() {
+                PacketType::OnIdentify(identity) => {
+                    println!("Identity: {:?}", identity);
                 }
-                Err(error_code) => eprintln!("Error: {:?}", error_code),
+
+                _ => panic!("Got packet: {:#?}", packet),
             }
         }
 
         Command::Status => {
-            send_empty_packet(port, PacketType::Status);
-            let packet = wait_for_packet(port);
-            match packet.response() {
-                Ok(data) => println!("Status: {:?}", data),
-                Err(error_code) => eprintln!("Error: {:?}", error_code),
+            let packet = Packet::new(0, PacketType::Status);
+            packet.serialize(port).unwrap();
+
+            let packet = Packet::deserialize(port).unwrap();
+            match packet.typ() {
+                PacketType::OnStatus(status) => {
+                    println!("Status: {:?}", status);
+                }
+
+                _ => panic!("Got packet: {:#?}", packet),
             }
         }
 
         Command::Command { cmd, params } => {
-            let mut data = Vec::new();
-            data.push(cmd);
-            data.extend_from_slice(&params);
-
-            send_packet(port, PacketType::Command, &data);
-            let packet = wait_for_packet(port);
-            match packet.response() {
-                Ok(_data) => {}
-                Err(error_code) => eprintln!("Error: {:?}", error_code),
-            }
+            todo!();
+            // let mut data = Vec::new();
+            // data.push(cmd);
+            // data.extend_from_slice(&params);
+            //
+            // send_packet(port, PacketType::Command, &data);
+            // let packet = wait_for_packet(port);
+            // match packet.response() {
+            //     Ok(_data) => {}
+            //     Err(error_code) => eprintln!("Error: {:?}", error_code),
+            // }
         }
     }
 }
