@@ -1,12 +1,15 @@
 use std::io::{Cursor, Read, Write};
-use std::net::TcpListener;
+use std::net::{TcpListener, TcpStream};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
+use std::time::Duration;
 
 use byteorder::ReadBytesExt;
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
 use speedwagon::{
-    Packet, PacketType, RSNavState, ResponseCode, Version, PACKET_START,
+    Identity, Packet, PacketType, RSNavState, ResponseCode, Version,
+    NUM_STATUS_BYTES, PACKET_START,
 };
 
 // NOTE(patrik):
@@ -334,16 +337,119 @@ impl State for RSNavState {
 //     write_response_packet(writer, packet.pid(), ResponseCode::Success, &[]);
 // }
 
-fn handle_connection<S>(mut stream: S, state: &Arc<RwLock<RSNavState>>)
+static CONNECTED: AtomicBool = AtomicBool::new(false);
+
+fn test<W>(writer: &mut W, status_time: u16)
 where
-    S: Read + Write,
+    W: Write,
 {
     loop {
+        if CONNECTED.load(Ordering::SeqCst) {
+            let status = [1, 2, 3, 4, 5, 6, 7, 8];
+            Packet::new(0xff, PacketType::OnStatus(status))
+                .serialize(writer)
+                .unwrap();
+        } else {
+            break;
+        }
+
+        std::thread::sleep(Duration::from_millis(status_time as u64));
+    }
+    println!("Exiting Status thread");
+}
+
+fn handle_connection(mut stream: TcpStream, state: &Arc<RwLock<RSNavState>>) {
+    loop {
+        println!("Connected: {}", CONNECTED.load(Ordering::SeqCst));
         let packet = match Packet::deserialize(&mut stream) {
             Ok(packet) => packet,
-            Err(_) => break,
+            Err(_) => {
+                CONNECTED.store(false, Ordering::SeqCst);
+                break;
+            }
         };
         println!("Packet: {:#?}", packet);
+
+        match packet.typ() {
+            PacketType::Connect {
+                send_status,
+                status_time,
+            } => {
+                if CONNECTED.load(Ordering::SeqCst) {
+                    Packet::new(
+                        packet.id(),
+                        PacketType::Error {
+                            code: ResponseCode::Unknown,
+                        },
+                    )
+                    .serialize(&mut stream)
+                    .unwrap();
+                } else {
+                    Packet::new(packet.id(), PacketType::OnConnect)
+                        .serialize(&mut stream)
+                        .unwrap();
+                    CONNECTED.store(true, Ordering::SeqCst);
+
+                    let status_time = *status_time;
+                    if *send_status {
+                        let mut s = stream.try_clone().unwrap();
+                        std::thread::spawn(move || test(&mut s, status_time));
+                    }
+                }
+            }
+
+            PacketType::Disconnect => {
+                CONNECTED.store(false, Ordering::SeqCst);
+            }
+
+            PacketType::Identify => {
+                if !CONNECTED.load(Ordering::SeqCst) {
+                    Packet::new(
+                        packet.id(),
+                        PacketType::Error {
+                            code: ResponseCode::InvalidPacketType,
+                        },
+                    )
+                    .serialize(&mut stream)
+                    .unwrap();
+
+                    return;
+                }
+
+                let identity = Identity {
+                    name: "Testing".to_string(),
+                    version: Version::new(0, 1, 0),
+                    num_cmds: 1,
+                };
+
+                Packet::new(packet.id(), PacketType::OnIdentify(identity))
+                    .serialize(&mut stream)
+                    .unwrap()
+            }
+
+            // let lock = state.read().unwrap();
+            // let status = [0; NUM_STATUS_BYTES];
+            // let mut cursor = Cursor::new(status);
+            // lock.serialize(&mut cursor).unwrap();
+            //
+            // Packet::new(packet.id(), PacketType::OnStatus(status))
+            //     .serialize(&mut stream)
+            //     .unwrap()
+            PacketType::Error { .. } |
+            PacketType::Cmd { .. } |
+            PacketType::Status |
+            PacketType::OnConnect |
+            PacketType::OnCmd |
+            PacketType::OnIdentify(_) |
+            PacketType::OnStatus(_) => Packet::new(
+                packet.id(),
+                PacketType::Error {
+                    code: ResponseCode::InvalidPacketType,
+                },
+            )
+            .serialize(&mut stream)
+            .unwrap(),
+        }
 
         // match packet.typ() {
         //     PacketType::Identify => {
